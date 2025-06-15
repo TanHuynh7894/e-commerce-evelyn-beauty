@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đăng nhập / Đăng ký bằng Google</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <h2>Đăng ký hoặc Đăng nhập bằng Google</h2>
+
+  <button id="btn-register">Đăng ký bằng Google</button>
+  <button id="btn-login">Đăng nhập bằng Google</button>
+
+  <script>
+    let action = '';
+
+    // ✅ Khởi tạo Google Identity Services
+    window.onload = () => {
+      try {
+        google.accounts.id.initialize({
+          client_id: "999350037356-hvog9s8vbcrbja7i06t6uud85f4oglvo.apps.googleusercontent.com",
+          callback: handleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+          context: 'signin',
+          ux_mode: 'popup',
+          prompt_parent_id: 'g_id_onload',
+          itp_support: true
+        });
+
+        // Thêm xử lý lỗi
+        google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            console.error('Google Sign-In không thể hiển thị:', notification);
+          }
+        });
+      } catch (error) {
+        console.error('Lỗi khởi tạo Google Sign-In:', error);
+      }
+    };
+
+    // 👉 Bắt sự kiện bấm nút
+    document.getElementById('btn-register').addEventListener('click', () => {
+      try {
+        action = 'register';
+        google.accounts.id.prompt();
+      } catch (error) {
+        console.error('Lỗi khi đăng ký:', error);
+      }
+    });
+
+    document.getElementById('btn-login').addEventListener('click', () => {
+      try {
+        action = 'login';
+        google.accounts.id.prompt();
+      } catch (error) {
+        console.error('Lỗi khi đăng nhập:', error);
+      }
+    });
+
+    // ✅ Xử lý phản hồi Google
+    async function handleCredentialResponse(response) {
+      try {
+        const res = await fetch("http://localhost:3000/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            credential: response.credential,
+            action: action 
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          alert("✅ Xin chào, " + data.account.name);
+        } else {
+          alert("❌ Lỗi: " + data.message);
+        }
+      } catch (err) {
+        console.error('Lỗi kết nối server:', err);
+        alert("❌ Không thể kết nối đến server.");
+      }
+    }
+  </script>
+</body>
+</html>
