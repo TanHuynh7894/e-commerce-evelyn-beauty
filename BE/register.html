@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Đăng ký tài khoản</title>
+  <style>
+    body { font-family: Arial; margin: 2rem; }
+    input, button { padding: 0.5rem; margin: 0.5rem 0; width: 300px; }
+  </style>
+</head>
+<body>
+  <h2>Đăng ký tài khoản</h2>
+
+  <input id="name" type="text" placeholder="Họ tên" /><br />
+  <input id="email" type="email" placeholder="Email" /><br />
+  <input id="password" type="password" placeholder="Mật khẩu" /><br />
+  <input id="confirm" type="password" placeholder="Xác nhận mật khẩu" /><br />
+  <button onclick="handleRegister()">Đăng ký</button>
+
+  <script>
+    async function handleRegister() {
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirm = document.getElementById('confirm').value;
+
+      if (!name || !email || !password || !confirm) {
+        alert('Vui lòng nhập đầy đủ thông tin!');
+        return;
+      }
+
+      if (password !== confirm) {
+        alert('Mật khẩu xác nhận không khớp!');
+        return;
+      }
+
+      try {
+        const res = await fetch('http://localhost:3000/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await res.json();
+        alert(data.message || JSON.stringify(data, null, 2));
+      } catch (err) {
+        console.error('Lỗi:', err);
+        alert('Đăng ký thất bại');
+      }
+    }
+  </script>
+</body>
+</html>

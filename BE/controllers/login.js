@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const { Account } = require('../models'); // Import models chung
 const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
+const { sendOtpEmail } = require('../utils/mails');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -20,7 +21,6 @@ const generateToken = (account) => {
   );
 };
 
-
 // ---------------------------
 // 🔐 Đăng nhập (truyền thống)
 // ---------------------------
@@ -28,10 +28,9 @@ exports.loginAccount = async (req, res) => {
   const { login, password } = req.body;
 
   try {
-    // Cho phép login là email hoặc accountId
     const account = await Account.findOne({
       where: {
-        email: login.trim().toLowerCase()  
+        email: login.trim().toLowerCase()
       }
     });
 
@@ -57,42 +56,46 @@ exports.loginAccount = async (req, res) => {
 };
 
 // ---------------------------
-// 🆕 Đăng ký (truyền thống)
+// 🆕 Đăng ký truyền thống + gửi OTP
 // ---------------------------
 exports.registerAccount = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
-    const existing = await Account.findOne({
-      where: {
-          email
-      }
-    });
+    const existing = await Account.findOne({ where: { email } });
 
     if (existing) {
       return res.status(409).json({ message: 'Tài khoản hoặc email đã tồn tại' });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
-    const newAccountID = "AC" + Date.now();
-    const newAccount = await Account.create({
-      accountId: newAccountID,
-      name,
-      email,
-      password: hashed,
-      role: 'CU',
-      googleId: null
-    });
+    // Tạo mã OTP và gửi mail
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    res.status(201).json({ message: 'Đăng ký thành công', account: newAccount });
+    try {
+      await sendOtpEmail(email, otpCode);
+      console.log(`✅ Gửi OTP ${otpCode} đến ${email}`);
+    } catch (mailErr) {
+      console.error('❌ Lỗi gửi OTP qua email:', mailErr);
+      return res.status(500).json({ message: 'Không gửi được email OTP. Kiểm tra MAIL_USER/PASS hoặc app password' });
+    }
+
+    global.tempOtps = global.tempOtps || {};
+    global.tempOtps[email] = {
+      code: otpCode,
+      expiredAt: Date.now() + 5 * 60 * 1000,
+      name,
+      password
+    };
+
+    res.status(200).json({ message: 'Mã OTP đã gửi tới email. Vui lòng xác minh để hoàn tất đăng ký.', email });
   } catch (err) {
-    console.error('Lỗi đăng ký:', err);
-    res.status(500).json({ message: 'Đăng ký thất bại' });
+    console.error('Lỗi gửi OTP:', err);
+    res.status(500).json({ message: 'Gửi OTP thất bại' });
   }
 };
 
 // ---------------------------
-// 🔐 Google Login/Register
+// 🔐 Google Login (chỉ đăng nhập)
 // ---------------------------
 exports.googleLogin = async (req, res) => {
   const { credential, action } = req.body;
@@ -108,36 +111,19 @@ exports.googleLogin = async (req, res) => {
 
     let account = await Account.findOne({ where: { email } });
 
-    if (action === 'register') {
-      if (account) return res.status(409).json({ message: 'Tài khoản đã tồn tại' });
-
-      const newAccountID = "AC" + Date.now();
-      account = await Account.create({
-        accountId: newAccountID,
-        name,
-        email,
-        password: 'GOOGLE_USER',
-        role: 'CU',
-        googleId: sub
-      });
-
-      return res.status(201).json({ message: 'Đăng ký thành công', account });
-    }
-
     if (action === 'login') {
       if (!account) return res.status(404).json({ message: 'Tài khoản chưa đăng ký' });
-      return res.status(200).json({ message: 'Đăng nhập thành công', account });
+
+      const token = generateToken(account);
+      const { password: _, ...accountSafe } = account.get({ plain: true });
+
+      return res.status(200).json({
+        message: 'Đăng nhập thành công',
+        account: accountSafe, token
+      });
     }
 
     res.status(400).json({ message: 'Hành động không hợp lệ' });
-
-    const token = generateToken(account);
-    const { password: _, ...accountSafe } = account.get({ plain: true });
-
-    return res.status(200).json({
-      message: 'Đăng nhập thành công',
-      account: accountSafe, token
-    });
   } catch (err) {
     console.error('Lỗi xác thực Google:', err);
     res.status(401).json({ message: 'Token không hợp lệ' });

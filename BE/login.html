@@ -1,152 +1,51 @@
 <!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng nhập / Đăng ký</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        input {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .error {
-            color: red;
-            margin-top: 10px;
-        }
-        .success {
-            color: green;
-            margin-top: 10px;
-        }
-    </style>
-</head>
-<body>
-    <h2>Đăng nhập</h2>
-    <form id="loginForm">
-        <div class="form-group">
-            <label for="loginId">Account ID hoặc Email:</label>
-            <input type="text" id="loginId" required>
-        </div>
-        <div class="form-group">
-            <label for="loginPassword">Mật khẩu:</label>
-            <input type="password" id="loginPassword" required>
-        </div>
-        <button type="submit">Đăng nhập</button>
-        <div id="loginMessage"></div>
-    </form>
-
-    <hr>
-
-    <h2>Đăng ký</h2>
-    <form id="registerForm">
-        <div class="form-group">
-            <label for="name">Họ tên:</label>
-            <input type="text" id="name" required>
-        </div>
-        <div class="form-group">
-            <label for="email">Email:</label>
-            <input type="email" id="email" required>
-        </div>
-        <div class="form-group">
-            <label for="password">Mật khẩu:</label>
-            <input type="password" id="password" required>
-        </div>
-        <button type="submit">Đăng ký</button>
-        <div id="registerMessage"></div>
-    </form>
-
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Google Login Demo</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
-        // Xử lý đăng nhập
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const loginId = document.getElementById('loginId').value;
-            const password = document.getElementById('loginPassword').value;
-            const messageDiv = document.getElementById('loginMessage');
+      function handleCredentialResponse(response) {
+        console.log("✅ ID Token:", response.credential);
 
-            try {
-                const response = await fetch('http://localhost:3000/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ login: loginId, password })
-                });
+        // Gửi lên backend
+        fetch("http://localhost:3000/auth/google", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            credential: response.credential,
+            action: "register"
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            console.log("🟢 Server response:", data);
+            alert(JSON.stringify(data, null, 2));
+          })
+          .catch((err) => {
+            console.error("❌ Lỗi gửi về backend:", err);
+          });
+      }
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageDiv.className = 'success';
-                    messageDiv.textContent = 'Đăng nhập thành công!';
-                    // Có thể chuyển hướng hoặc lưu token ở đây
-                } else {
-                    messageDiv.className = 'error';
-                    messageDiv.textContent = data.message || 'Đăng nhập thất bại';
-                }
-            } catch (error) {
-                messageDiv.className = 'error';
-                messageDiv.textContent = 'Lỗi kết nối server';
-            }
+      window.onload = function () {
+        google.accounts.id.initialize({
+          client_id: "999350037356-j4dip6ho0ma3sgd6gh91hje69ensot0g.apps.googleusercontent.com",
+          callback: handleCredentialResponse,
         });
 
-        // Xử lý đăng ký
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('name').value;
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const messageDiv = document.getElementById('registerMessage');
+        google.accounts.id.renderButton(
+          document.getElementById("g-login-btn"),
+          { theme: "outline", size: "large",text: "signup_with" }
+        );
 
-            try {
-                const response = await fetch('http://localhost:3000/auth/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ name, email, password })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    messageDiv.className = 'success';
-                    messageDiv.textContent = 'Đăng ký thành công!';
-                    // Reset form sau khi đăng ký thành công
-                    document.getElementById('registerForm').reset();
-                } else {
-                    messageDiv.className = 'error';
-                    messageDiv.textContent = data.message || 'Đăng ký thất bại';
-                }
-            } catch (error) {
-                messageDiv.className = 'error';
-                messageDiv.textContent = 'Lỗi kết nối server';
-            }
-        });
+        google.accounts.id.prompt(); // Hiện One Tap popup
+      };
     </script>
-</body>
-</html> 
+  </head>
+  <body>
+    <h2>Đăng kí bằng Google</h2>
+    <div id="g-login-btn"></div>
+  </body>
+</html>
