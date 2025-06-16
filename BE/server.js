@@ -6,12 +6,15 @@ const passport = require('./auth/passport'); // đường dẫn đến file cấ
 const authRoutes = require('./routes/auth');
 const googleRoutes = require('./routes/google');
 const protectedRoutes = require('./routes/protectedRoutes'); 
+const otpRoutes = require('./routes/otp');
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+app.use('/auth', otpRoutes);
 
 // 🔐 Cấu hình session (bắt buộc cho passport)
 app.use(session({
