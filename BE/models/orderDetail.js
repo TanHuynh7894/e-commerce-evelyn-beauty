@@ -27,7 +27,7 @@ const OrderDetail = sequelize.define('OrderDetail', {
   timestamps: false
 });
 
-OrderDetail.associate = (models) => {
+  OrderDetail.associate = (models) => {
   OrderDetail.belongsTo(models.Order, { foreignKey: 'orderId', as: 'order' });
   OrderDetail.belongsTo(models.Product, { foreignKey: 'productId', as: 'product' });
 };
