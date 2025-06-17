@@ -1,14 +1,11 @@
 const { OAuth2Client } = require('google-auth-library');
-const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt');
-const { Account } = require('../models'); // Import models chung
-const { Op } = require('sequelize');
+const { Account } = require('../models');
 const jwt = require('jsonwebtoken');
 const { sendOtpEmail } = require('../utils/mails');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Tạo JWT token
 const generateToken = (account) => {
   return jwt.sign(
     {
@@ -17,20 +14,17 @@ const generateToken = (account) => {
       role: account.role
     },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '1d' }
   );
 };
 
-// ---------------------------
-// 🔐 Đăng nhập (truyền thống)
-// ---------------------------
-exports.loginAccount = async (req, res) => {
-  const { login, password } = req.body;
+const loginAccount = async (req, res) => {
+  const { email, password } = req.body;
 
   try {
     const account = await Account.findOne({
       where: {
-        email: login.trim().toLowerCase()
+        email: email.trim().toLowerCase()
       }
     });
 
@@ -55,10 +49,7 @@ exports.loginAccount = async (req, res) => {
   }
 };
 
-// ---------------------------
-// 🆕 Đăng ký truyền thống + gửi OTP
-// ---------------------------
-exports.registerAccount = async (req, res) => {
+const registerAccount = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
@@ -68,14 +59,13 @@ exports.registerAccount = async (req, res) => {
       return res.status(409).json({ message: 'Tài khoản hoặc email đã tồn tại' });
     }
 
-    // Tạo mã OTP và gửi mail
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     try {
       await sendOtpEmail(email, otpCode);
-      console.log(`✅ Gửi OTP ${otpCode} đến ${email}`);
+      console.log(` Gửi OTP ${otpCode} đến ${email}`);
     } catch (mailErr) {
-      console.error('❌ Lỗi gửi OTP qua email:', mailErr);
+      console.error(' Lỗi gửi OTP qua email:', mailErr);
       return res.status(500).json({ message: 'Không gửi được email OTP. Kiểm tra MAIL_USER/PASS hoặc app password' });
     }
 
@@ -94,10 +84,7 @@ exports.registerAccount = async (req, res) => {
   }
 };
 
-// ---------------------------
-// 🔐 Google Login (chỉ đăng nhập)
-// ---------------------------
-exports.googleLogin = async (req, res) => {
+const googleLogin = async (req, res) => {
   const { credential, action } = req.body;
 
   try {
@@ -129,3 +116,47 @@ exports.googleLogin = async (req, res) => {
     res.status(401).json({ message: 'Token không hợp lệ' });
   }
 };
+
+const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+  const record = global.tempOtps?.[email];
+
+  if (!record) return res.status(400).json({ message: 'Không tìm thấy mã OTP' });
+  if (Date.now() > record.expiredAt) return res.status(410).json({ message: 'Mã đã hết hạn' });
+  if (record.code !== otp) return res.status(401).json({ message: 'Mã không đúng' });
+
+  const newAccountID = "AC" + Date.now();
+  const account = await Account.create({
+    accountId: newAccountID,
+    name: record.name,
+    email,
+    password: await bcrypt.hash(record.password, 10),
+    role: 'CU',
+    googleId: record.googleId
+  });
+
+  delete global.tempOtps[email];
+
+  res.status(201).json({ message: 'Đăng ký thành công', account });
+};
+
+const logout = (req, res, next) => {
+  req.logout(function(err) {
+    if (err) return next(err);
+
+    req.session.destroy(function(err) {
+      if (err) return next(err);
+
+      res.clearCookie('connect.sid'); // Nếu dùng session cookie
+      res.status(200).json({ message: 'Đăng xuất thành công!' });
+    });
+  });
+};
+
+module.exports = {
+  loginAccount,
+  registerAccount,
+  googleLogin,
+  verifyOtp,
+  logout
+}; 

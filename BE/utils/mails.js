@@ -1,18 +1,23 @@
 const nodemailer = require('nodemailer');
 
-exports.sendOtpEmail = async (to, otpCode) => {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS
-    }
-  });
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
 
+exports.sendOtpEmail = async (to, otp) => {
   await transporter.sendMail({
-    from: process.env.MAIL_USER,
+    from: `"Evelyn Beauty" <${process.env.MAIL_USER}>`,
     to,
-    subject: 'Mã OTP xác thực',
-    text: `Mã xác thực của bạn là: ${otpCode}`
+    subject: 'Xác minh OTP - Evelyn Beauty',
+    text: `Mã OTP của bạn là: ${otp}`
   });
 };

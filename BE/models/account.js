@@ -25,8 +25,8 @@ Account.associate = (models) => {
   Account.hasMany(models.Order, { foreignKey: 'accountId', as: 'orders' });
   Account.hasMany(models.PromotionProgram, { foreignKey: 'accountId', as: 'promotionPrograms' });
   Account.hasMany(models.OrderCancel, { foreignKey: 'accountId', as: 'orderCancels' });
-  Account.hasMany(models.Support, { foreignKey: 'accountIdCustomer', as: 'supportRequests' });
-  Account.hasMany(models.Support, { foreignKey: 'accountIdStaff', as: 'supportAssigned' });
+  Account.hasMany(models.Support, { foreignKey: 'accountId', as: 'supportRequests' });
+  Account.hasMany(models.Support, { foreignKey: 'accountId', as: 'supportAssigned' });
   Account.hasMany(models.Category, { foreignKey: 'accountId', as: 'categories' });
 };
 
