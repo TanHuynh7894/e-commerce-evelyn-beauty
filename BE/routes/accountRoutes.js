@@ -12,6 +12,10 @@ router.post("/login", accountController.loginAccount);
 router.post("/register", accountController.registerAccount);
 router.post("/google", accountController.googleLogin);
 
+// ➕ Quên mật khẩu (JWT không lưu DB)
+router.post("/forgot-password", accountController.forgotPassword);
+router.post("/reset-password", accountController.resetPassword);
+
 // Protected routes
 router.get("/", verifyToken, (req, res) => {
   res.json({
@@ -43,7 +47,7 @@ router.get(
 );
 
 // Logout route
-router.post("/logout", accountController.logout); // Assuming logout will be a POST route for consistency or can be changed to GET/DELETE if needed.
+router.post("/logout", accountController.logout);
 
 // HomePage and Manage page routes (from auth.js originally)
 router.get("/home", verifyToken, requireRole("CU", "SF", "OS"), (req, res) => {
@@ -55,27 +59,3 @@ router.get("/manage", verifyToken, requireRole("SF", "OS"), (req, res) => {
 });
 
 module.exports = router;
-/**
- * @swagger
- * /auth/login:
- *   post:
- *     summary: Đăng nhập tài khoản
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Đăng nhập thành công
- *       401:
- *         description: Mật khẩu không đúng
- */
-router.post("/login", accountController.loginAccount);

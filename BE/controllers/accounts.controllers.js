@@ -153,10 +153,56 @@ const logout = (req, res, next) => {
   });
 };
 
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const account = await Account.findOne({ where: { email } });
+    if (!account) return res.status(200).json({ message: 'Nếu email tồn tại, chúng tôi đã gửi hướng dẫn.' });
+
+    const token = jwt.sign(
+      { accountId: account.accountId, email: account.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const resetLink = `http://localhost:3000/reset-password?token=${token}`;
+    await sendOtpEmail(email, `Bấm vào đây để đặt lại mật khẩu: ${resetLink}`);
+
+    res.status(200).json({ message: 'Hướng dẫn đặt lại mật khẩu đã được gửi nếu email tồn tại.' });
+  } catch (err) {
+    console.error('Lỗi gửi link quên mật khẩu:', err);
+    res.status(500).json({ message: 'Không gửi được link quên mật khẩu' });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const account = await Account.findOne({ where: { accountId: decoded.accountId } });
+
+    if (!account) return res.status(404).json({ message: 'Tài khoản không tồn tại' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    account.password = hashed;
+    await account.save();
+
+    res.status(200).json({ message: 'Đặt lại mật khẩu thành công' });
+  } catch (err) {
+    console.error('Lỗi xác thực token reset:', err);
+    res.status(400).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
+  }
+};
+
+
 module.exports = {
   loginAccount,
   registerAccount,
   googleLogin,
   verifyOtp,
-  logout
-}; 
+  logout,
+  forgotPassword,
+  resetPassword
+};
