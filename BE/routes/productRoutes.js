@@ -12,7 +12,7 @@ router.get("/", logProductRequest, productsController.getAllProducts);
 
 // Lấy sản phẩm theo categoryId
 router.get(
-  "/category=:categoryId",
+  "/category/:categoryId",
   paginate,
   productsController.getProductsByCategory
 );
