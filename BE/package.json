@@ -1,9 +1,10 @@
 {
   "name": "be",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend for Evelyn Beauty",
+  "main": "server.js",
   "scripts": {
+    "start": "node server.js",
     "test": "jest"
   },
   "keywords": [],
@@ -18,9 +19,12 @@
     "google-auth-library": "^10.1.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.1",
+    "nodemailer": "^7.0.3",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.1.0"
   },
   "devDependencies": {
     "jest": "^30.0.0"

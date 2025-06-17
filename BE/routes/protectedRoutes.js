@@ -1,12 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { verifyToken } = require('../middlewares/auth');
+const { verifyToken, requireRole } = require('../middlewares/auth');
 
-router.get('/', verifyToken, (req, res) => {
+router.get('/home', verifyToken, requireRole("CU", "SF", "OS"), (req, res) => {
   res.json({
-    message: '✅ Truy cập thành công',
+    message: '✅ Chào mừng tới trang chính',
+    user: req.user
+  });
+});
+
+router.get('/manage', verifyToken, requireRole("SF", "OS"), (req, res) => {
+  res.json({
+    message: '👑 Truy cập trang quản lý',
     user: req.user
   });
 });
 
 module.exports = router;
+
