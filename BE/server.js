@@ -6,7 +6,6 @@ const passport = require('./auth/passport'); // đường dẫn đến file cấ
 const authRoutes = require('./routes/auth');
 const googleRoutes = require('./routes/google');
 const protectedRoutes = require('./routes/protectedRoutes'); 
-const productRoutes = require('./routes/topSeller'); 
 
 dotenv.config();
 
@@ -40,7 +39,7 @@ app.use('/auth', googleRoutes);
 app.use('/api/protected', protectedRoutes);
 
 //Cho topSeller
-app.use('/api', productRoutes);
+app.use('/api', authRoutes);
 
 // 👂 Lắng nghe cổng từ .env hoặc mặc định 3000
 const PORT = process.env.PORT || 3000;
