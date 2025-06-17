@@ -4,9 +4,8 @@ const dotenv = require('dotenv');
 const session = require('express-session');
 const passport = require('./auth/passport');
 
-// 👉 Import route đã chứa forgot-password và reset-password
+// 👉 Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require('./routes/accountRoutes');
-const protectedRoutes = require('./routes/protectedRoutes');
 
 dotenv.config();
 
@@ -29,9 +28,8 @@ app.get('/', (req, res) => {
   res.send('✅ Server Evelyn Beauty hoạt động! Vào /auth để dùng API.');
 });
 
-// ✅ Mount routes
-app.use('/auth', authRoutes);              // Bao gồm: login, register, forgot-password, reset-password, google login
-app.use('/api/protected', protectedRoutes); // Các route cần xác thực JWT hoặc role
+// ✅ Mount tất cả route vào /auth
+app.use('/auth', authRoutes); // Bao gồm login, register, forgot-password, reset-password, OTP, Google, và cả protected
 
 // Khởi động server
 const PORT = process.env.PORT || 3000;

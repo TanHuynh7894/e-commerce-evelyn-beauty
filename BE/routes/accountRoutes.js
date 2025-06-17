@@ -16,7 +16,25 @@ router.post("/google", accountController.googleLogin);
 router.post("/forgot-password", accountController.forgotPassword);
 router.post("/reset-password", accountController.resetPassword);
 
-// Protected routes
+// Logout route
+router.post("/logout", accountController.logout);
+
+// 🔐 Protected routes (từ protectedRoutes.js gộp vào)
+router.get("/home", verifyToken, requireRole("CU", "SF", "OS"), (req, res) => {
+  res.json({
+    message: "✅ Chào mừng tới trang chính",
+    user: req.user,
+  });
+});
+
+router.get("/manage", verifyToken, requireRole("SF", "OS"), (req, res) => {
+  res.json({
+    message: "👑 Truy cập trang quản lý",
+    user: req.user,
+  });
+});
+
+// 🔁 Test route
 router.get("/", verifyToken, (req, res) => {
   res.json({
     message: "✅ Truy cập thành công",
@@ -45,17 +63,5 @@ router.get(
     });
   }
 );
-
-// Logout route
-router.post("/logout", accountController.logout);
-
-// HomePage and Manage page routes (from auth.js originally)
-router.get("/home", verifyToken, requireRole("CU", "SF", "OS"), (req, res) => {
-  res.json({ message: "Chào mừng tới trang chính", user: req.user });
-});
-
-router.get("/manage", verifyToken, requireRole("SF", "OS"), (req, res) => {
-  res.json({ message: "Chào mừng tới trang quản lý", user: req.user });
-});
 
 module.exports = router;
