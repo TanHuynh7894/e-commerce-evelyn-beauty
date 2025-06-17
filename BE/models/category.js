@@ -10,6 +10,15 @@ const Category = sequelize.define(
       field: "category_id",
     },
     name: DataTypes.STRING(40),
+
+    accountId: {
+      type: DataTypes.STRING(20),
+      field: "account_id",
+    },
+    status: {
+      type: DataTypes.STRING(10),
+      field: "status",
+    },
   },
   {
     tableName: "category",
@@ -18,16 +27,15 @@ const Category = sequelize.define(
 );
 
 Category.associate = (models) => {
-  Category.belongsTo(models.Account, {
-    foreignKey: "accountId",
-    as: "creator",
-  });
-
   Category.belongsToMany(models.Product, {
     through: models.CategoryProduct, // bảng trung gian
     foreignKey: "categoryId",
     otherKey: "productId",
     as: "products",
+  });
+  Category.belongsTo(models.Account, {
+    foreignKey: "accountId",
+    as: "creator",
   });
 };
 
