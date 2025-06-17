@@ -1,0 +1,45 @@
+tags:
+  - name: Auth
+    description: Các API xác thực
+
+paths:
+  /login:
+    post:
+      summary: Đăng nhập tài khoản
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: Đăng nhập thành công
+  /register:
+    post:
+      summary: Đăng ký tài khoản mới
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                name:
+                  type: string
+      responses:
+        201:
+          description: Tạo tài khoản thành công

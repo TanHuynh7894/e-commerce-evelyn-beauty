@@ -6,7 +6,9 @@ const passport = require('./auth/passport'); // đường dẫn đến file cấ
 const authRoutes = require('./routes/auth');
 const googleRoutes = require('./routes/google');
 const protectedRoutes = require('./routes/protectedRoutes'); 
-const productRoutes = require('./routes/topSeller');
+const setupSwagger = require('./swagger/swagger'); // <-- Dòng này bị thiếu
+
+//const productRoutes = require('./routes/topSeller');
 
 dotenv.config();
 
@@ -25,6 +27,9 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+//Tạo tài liệu api
+setupSwagger(app);
+
 // 👇 Route mặc định
 app.get('/', (req, res) => {
   res.send('✅ Server Evelyn Beauty hoạt động! Vào /auth để dùng API.');
@@ -40,7 +45,7 @@ app.use('/auth', googleRoutes);
 app.use('/api/protected', protectedRoutes);
 
 //Route cho topSeller ở homePage
-app.use('/api', productRoutes);
+//app.use('/api', productRoutes);
 
 // 👂 Lắng nghe cổng từ .env hoặc mặc định 3000
 const PORT = process.env.PORT || 3000;
