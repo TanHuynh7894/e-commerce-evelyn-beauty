@@ -14,7 +14,7 @@ router.post('/register', controller.registerAccount);
 router.post('/google', controller.googleLogin);
 
 //top seller
-router.get('/product-topSeller', getAllProductIds); 
+router.get('/product-reccommended', getAllProductIds); 
 
 // 🏠 Trang homePage (vai trò: CU, SF, OS đều vào được)
 router.get('/home', verifyToken, requireRole('CU', 'SF', 'OS'), (req, res) => {
