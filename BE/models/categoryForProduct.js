@@ -7,6 +7,7 @@ const CategoryProduct = sequelize.define(
     categoryId: {
       type: DataTypes.STRING(20),
       primaryKey: true,
+      field: "category_id",
       references: {
         model: "category",
         key: "category_id",
@@ -15,6 +16,7 @@ const CategoryProduct = sequelize.define(
     productId: {
       type: DataTypes.STRING(20),
       primaryKey: true,
+      field: "product_id",
       references: {
         model: "products",
         key: "product_id",

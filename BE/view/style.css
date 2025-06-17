@@ -1,0 +1,18 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 40px 0;
+  background-color: #ffffff;
+  display: flex;
+  justify-content: center; /* căn giữa ngang */
+  align-items: flex-start; /* hoặc center nếu muốn giữa cả dọc */
+  min-height: 100vh; /* full màn hình chiều cao */
+  box-sizing: border-box;
+}
+
+.container {
+  width: 100%;
+  max-width: 600px;
+  padding: 0 16px; /* ✅ thêm padding hai bên để không bị đụng lề */
+  box-sizing: border-box;
+}
