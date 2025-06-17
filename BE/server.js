@@ -7,6 +7,8 @@ const passport = require('./auth/passport');
 // 👉 Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require('./routes/accountRoutes');
 
+const setupSwagger = require('./swagger/swagger');
+
 dotenv.config();
 
 const app = express();
@@ -22,6 +24,8 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+setupSwagger(app);
 
 // 🏠 Route kiểm tra server
 app.get('/', (req, res) => {
