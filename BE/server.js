@@ -1,11 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const session = require('express-session');
-const passport = require('./auth/passport');
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const session = require("express-session");
+const passport = require("./auth/passport");
 const productsRoutes = require("./routes/productRoutes");
 // 👉 Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
-const authRoutes = require('./routes/accountRoutes');
+const authRoutes = require("./routes/accountRoutes");
 
 dotenv.config();
 
@@ -14,22 +14,24 @@ app.use(cors());
 app.use(express.json());
 
 // Session setup (cho Google OAuth nếu dùng)
-app.use(session({
-  secret: 'super-secret',
-  resave: false,
-  saveUninitialized: true
-}));
+app.use(
+  session({
+    secret: "super-secret",
+    resave: false,
+    saveUninitialized: true,
+  })
+);
 
 app.use(passport.initialize());
 app.use(passport.session());
 
 // 🏠 Route kiểm tra server
-app.get('/', (req, res) => {
-  res.send('✅ Server Evelyn Beauty hoạt động! Vào /auth để dùng API.');
+app.get("/", (req, res) => {
+  res.send("✅ Server Evelyn Beauty hoạt động! Vào /auth để dùng API.");
 });
 
 // ✅ Mount tất cả route vào /auth
-app.use('/auth', authRoutes); // Bao gồm login, register, forgot-password, reset-password, OTP, Google, và cả protected
+app.use("/auth", authRoutes); // Bao gồm login, register, forgot-password, reset-password, OTP, Google, và cả protected
 
 //Route cho products
 app.use("/api/products", productsRoutes);

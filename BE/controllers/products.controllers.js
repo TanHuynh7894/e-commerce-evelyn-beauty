@@ -12,22 +12,19 @@ exports.getAllProducts = async (req, res) => {
 
 // Lấy sản phẩm theo categoryId (many-to-many)
 exports.getProductsByCategory = async (req, res) => {
-  const { categoryId } = req.params;
+  const categoryId = req.query.category;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
 
   try {
-    // Kiểm tra category có tồn tại không
     const category = await Category.findByPk(categoryId);
     if (!category) {
-      return res.status(404).json({
-        message: "Không tìm thấy danh mục sản phẩm",
-        categoryId,
-      });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy danh mục", categoryId });
     }
 
-    // Lấy sản phẩm với phân trang
     const { count, rows: products } = await Product.findAndCountAll({
       include: [
         {
@@ -102,19 +99,18 @@ exports.getProductsByBrand = async (req, res) => {
 
 // Lấy sản phẩm theo categoryId và brand
 exports.getProductsByCategoryAndBrand = async (req, res) => {
-  const { categoryId } = req.params;
-  const { brand } = req.query;
+  const { category, brand } = req.query;
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
 
   try {
     // Kiểm tra category có tồn tại không
-    const category = await Category.findByPk(categoryId);
-    if (!category) {
+    const categoryExists = await Category.findByPk(category);
+    if (!categoryExists) {
       return res.status(404).json({
         message: "Không tìm thấy danh mục sản phẩm",
-        categoryId,
+        category,
       });
     }
 
@@ -124,7 +120,7 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
         {
           model: Category,
           as: "categories",
-          where: { categoryId },
+          where: { categoryId: category },
           attributes: ["categoryId", "name"],
         },
       ],

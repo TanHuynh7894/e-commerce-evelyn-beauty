@@ -11,18 +11,14 @@ const {
 router.get("/", logProductRequest, productsController.getAllProducts);
 
 // Lấy sản phẩm theo categoryId
-router.get(
-  "/category/:categoryId",
-  paginate,
-  productsController.getProductsByCategory
-);
+router.get("/category", paginate, productsController.getProductsByCategory);
 
 // Lấy sản phẩm theo brand
 router.get("/brand", paginate, productsController.getProductsByBrand);
 
 // Lấy sản phẩm theo categoryId và brand
 router.get(
-  "/category/:categoryId/brand",
+  "/category",
   paginate,
   productsController.getProductsByCategoryAndBrand
 );
