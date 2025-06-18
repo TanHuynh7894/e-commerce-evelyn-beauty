@@ -6,6 +6,7 @@ const passport = require("./auth/passport");
 const productsRoutes = require("./routes/productRoutes");
 // 👉 Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
+const profileRoutes = require("./routes/profileRoutes");
 
 dotenv.config();
 
@@ -35,6 +36,9 @@ app.use("/auth", authRoutes); // Bao gồm login, register, forgot-password, res
 
 //Route cho products
 app.use("/api/products", productsRoutes);
+
+//Route cho profiles
+app.use("/api/profiles", profileRoutes);
 
 // Khởi động server
 const PORT = process.env.PORT || 3000;
