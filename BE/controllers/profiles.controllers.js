@@ -1,4 +1,4 @@
-const { Profile, Account } = require("../models");
+const { Profile, Account, Order } = require("../models");
 
 //Lấy thông tin profile của customer hiện tại
 const getMyProfile = async (req, res) => {
@@ -160,9 +160,19 @@ const deleteProfileById = async (req, res) => {
         .json({ message: "Không tìm thấy profile hoặc không có quyền" });
     }
 
-    await profile.destroy();
-
-    return res.status(200).json({ message: "Xóa profile thành công" });
+    // Kiểm tra xem profile này có Order nào không
+    const order = await Order.findOne({ where: { profileId } });
+    if (order) {
+      // Nếu có Order, update status thành OFF
+      await profile.update({ status: "OFF" });
+      return res
+        .status(200)
+        .json({ message: "Profile đã có đơn hàng, chuyển trạng thái OFF" });
+    } else {
+      // Nếu không có Order, xóa profile
+      await profile.destroy();
+      return res.status(200).json({ message: "Xóa profile thành công" });
+    }
   } catch (error) {
     console.error("Lỗi khi xóa profile:", error);
     return res.status(500).json({ message: "Lỗi server khi xóa profile" });
