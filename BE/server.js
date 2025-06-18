@@ -33,6 +33,7 @@ app.get("/", (req, res) => {
 // ✅ Mount tất cả route vào /auth
 app.use("/auth", authRoutes); // Bao gồm login, register, forgot-password, reset-password, OTP, Google, và cả protected
 
+app.use('/api/protected',authRoutes)
 //Route cho products
 app.use("/api/products", productsRoutes);
 
