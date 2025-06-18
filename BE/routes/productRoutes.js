@@ -26,4 +26,7 @@ router.get(
 // Tìm kiếm sản phẩm
 router.get("/search", validateSearchKeyword, productsController.searchProducts);
 
+//Láy list 10 sản phẩm recommend
+router.get("/recommend", paginate, productsController.getRecommendProducts);
+
 module.exports = router;
