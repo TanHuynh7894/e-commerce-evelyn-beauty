@@ -6,6 +6,7 @@ const {
   paginate,
   logProductRequest,
 } = require("../middlewares/products.middlewares");
+const { verifyToken, requireRole } = require("../middlewares/auth");
 
 //Lấy tất cả sản phẩm
 router.get("/", logProductRequest, productsController.getAllProducts);
@@ -28,5 +29,8 @@ router.get("/search", validateSearchKeyword, productsController.searchProducts);
 
 //Láy list 10 sản phẩm recommend
 router.get("/recommend", paginate, productsController.getRecommendProducts);
+
+//importNewProduct
+router.post("/importProduct", verifyToken, requireRole("SF", "OS"), productsController.importNewProduct);
 
 module.exports = router;

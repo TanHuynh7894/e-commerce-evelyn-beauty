@@ -251,3 +251,81 @@ exports.searchProducts = async (req, res) => {
     });
   }
 };
+
+// thêm 1 sản phẩm mới
+exports.importNewProduct = async (req, res) => {
+  try {
+    const { products } = req.body;
+
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ message: 'Danh sách sản phẩm không hợp lệ hoặc rỗng.' });
+    }
+
+    const created = [];
+    const skipped = [];
+
+    for (const item of products) {
+      const {
+        name,
+        origin,
+        quantity,
+        brand,
+        price,
+        description,
+        image,
+        categoryIds = []
+      } = item;
+
+      if (!name || !price || !brand) {
+        skipped.push({ name, reason: 'Thiếu thông tin bắt buộc' });
+        continue;
+      }
+
+      const newProductId = 'PD' + Date.now();
+
+      const existing = await Product.findOne({
+        where: { name, origin, quantity, brand, price, description, image }
+      });
+
+      if (existing) {
+        skipped.push({ name, reason: 'Sản phẩm đã tồn tại' });
+        continue;
+      }
+
+      const newProduct = await Product.create({
+        productId: newProductId,
+        name,
+        origin,
+        quantity,
+        brand,
+        price,
+        description,
+        image
+      });
+
+      // Gán danh mục nếu có
+      if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+        await newProduct.setCategories(categoryIds); // Sequelize tự map thông qua bảng CategoryProduct
+      }
+
+      created.push(newProduct);
+    }
+
+    return res.status(201).json({
+      message: 'Import sản phẩm thành công',
+      imported: created.length,
+      skipped: skipped.length,
+      data: {
+        created,
+        skipped
+      }
+    });
+
+  } catch (error) {
+    console.error('Lỗi khi import sản phẩm:', error);
+    return res.status(500).json({
+      message: 'Lỗi server khi import sản phẩm',
+      error: error.message
+    });
+  }
+};
