@@ -204,7 +204,7 @@ exports.searchProducts = async (req, res) => {
       const name = item.product?.name || 'Unknown';
       const image = item.product?.image || null;
 
-      // ✅ Lọc: chỉ lấy đơn hoàn thành và có đánh giá
+      // Lọc: chỉ lấy đơn hoàn thành và có đánh giá
       if (status !== 'done' || rate == null) continue;
 
       if (!productMap[productId]) {
@@ -235,8 +235,8 @@ exports.searchProducts = async (req, res) => {
         };
       })
       .filter(p => p.averageRate > 4.5)
-      .sort((a, b) => b.averageRate - a.averageRate) // 🔁 hoặc sort theo quantitySold nếu muốn
-      .slice(0, 10); // 🔟 Top 10 sản phẩm
+      .sort((a, b) => b.averageRate - a.averageRate) // hoặc sort theo quantitySold nếu muốn
+      .slice(0, 10); // Top 10 sản phẩm
 
     return res.status(200).json({
       message: 'Lấy sản phẩm đề xuất thành công',
@@ -325,6 +325,68 @@ exports.importNewProduct = async (req, res) => {
     console.error('Lỗi khi import sản phẩm:', error);
     return res.status(500).json({
       message: 'Lỗi server khi import sản phẩm',
+      error: error.message
+    });
+  }
+};
+
+//update thông tin sản phẩm
+exports.updateProduct = async (req, res) => {
+  try {
+    const { productId } = req.query;
+    const updates = req.body;
+
+    const product = await Product.findByPk(productId);
+
+    if (!product) {
+      return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
+    }
+
+    // Danh sách các trường được phép cập nhật
+    const allowedFields = ['name', 'origin', 'quantity', 'brand', 'price', 'description', 'image'];
+    const updateKeys = Object.keys(updates).filter(key => allowedFields.includes(key));
+
+    if (updateKeys.length === 0) {
+      return res.status(400).json({ message: 'Không có trường hợp lệ để cập nhật.' });
+    }
+
+    const isOnlyQuantity = updateKeys.length === 1 && updateKeys[0] === 'quantity';
+
+    //Trường hợp chỉ update quantity
+    if (isOnlyQuantity) {
+      await product.update({ quantity: updates.quantity });
+      return res.status(200).json({
+        message: 'Cập nhật số lượng thành công.',
+        updatedProduct: product
+      });
+    }
+
+    //Trường hợp update thông tin khác → đánh dấu "off" và tạo mới
+    await product.update({ status: 'OFF' });
+
+    const newProductId = 'PD' + Date.now();
+
+    const newProduct = await Product.create({
+      productId: newProductId,
+      name: updates.name || product.name,
+      origin: updates.origin || product.origin,
+      quantity: updates.quantity || product.quantity,
+      brand: updates.brand || product.brand,
+      price: updates.price || product.price,
+      description: updates.description || product.description,
+      image: updates.image || product.image,
+      status: 'ON'
+    });
+
+    return res.status(200).json({
+      message: 'Đã tạo sản phẩm mới và update status sản phẩm cũ thành off.',
+      newProduct
+    });
+
+  } catch (error) {
+    console.error('Lỗi khi cập nhật sản phẩm:', error);
+    return res.status(500).json({
+      message: 'Lỗi server khi cập nhật sản phẩm',
       error: error.message
     });
   }
