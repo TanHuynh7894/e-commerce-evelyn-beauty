@@ -3,7 +3,7 @@ const { Profile, Account, Order } = require("../models");
 //Lấy thông tin profile của customer hiện tại
 const getMyProfile = async (req, res) => {
   try {
-    const { accountId } = req.user;
+    const { accountId, role } = req.user;
 
     // Tìm profile của customer
     const profile = await Profile.findOne({
@@ -20,12 +20,21 @@ const getMyProfile = async (req, res) => {
     });
 
     if (!profile) {
-      // Nếu chưa có profile, trả về thông tin để tạo mới
-      return res.status(404).json({
-        message: "Chưa có profile. Vui lòng tạo profile mới.",
-        hasProfile: false,
-        accountId: accountId,
-      });
+      // Nếu chưa có profile, trả về thông báo phù hợp cho role ST
+      if (role === "ST") {
+        return res.status(404).json({
+          message: "Chưa có profile, hãy liên hệ với chủ shop để tạo profile",
+          hasProfile: false,
+          accountId: accountId,
+        });
+      } else {
+        // Nếu không phải ST, giữ nguyên thông báo cũ
+        return res.status(404).json({
+          message: "Chưa có profile. Vui lòng tạo profile mới.",
+          hasProfile: false,
+          accountId: accountId,
+        });
+      }
     }
 
     // Nếu có profile, trả về thông tin profile
@@ -57,8 +66,7 @@ const createProfile = async (req, res) => {
     const { name, phone, address, gender, birthday, image } = req.body;
 
     // Tạo profileId mới
-    const profileId =
-      "PF" + Date.now();
+    const profileId = "PF" + Date.now();
 
     // Tạo profile mới
     const newProfile = await Profile.create({
