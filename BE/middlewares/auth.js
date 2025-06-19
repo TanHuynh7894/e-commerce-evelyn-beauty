@@ -1,6 +1,27 @@
 const jwt = require('jsonwebtoken');
+const fs = require("fs");
+const path = require("path");
 
-// ✅ Middleware xác thực JWT
+const logDbAccess = async (req, res, next) => {
+  try {
+    if (req.user) {
+      const logEntry = `[${new Date().toISOString()}] ${req.user.accountId} - ${req.method} ${req.originalUrl}\n`;
+
+      const logPath = path.join(__dirname, "../logs/db_access.log");
+      fs.appendFile(logPath, logEntry, (err) => {
+        if (err) {
+          console.error("Lỗi ghi log DB:", err.message);
+        }
+      });
+    }
+  } catch (err) {
+    console.error("Lỗi ghi log DB:", err.message);
+  }
+
+  next(); // tiếp tục route xử lý
+};
+
+//  Middleware xác thực JWT
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -15,7 +36,7 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-// ✅ Middleware phân quyền theo role
+//  Middleware phân quyền theo role
 const requireRole = (...roles) => {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ message: 'Chưa xác thực' });
@@ -28,8 +49,9 @@ const requireRole = (...roles) => {
   };
 };
 
-// ✅ Export đúng cách
+//  Export đúng cách
 module.exports = {
   verifyToken,
-  requireRole
+  requireRole,
+  logDbAccess
 };
