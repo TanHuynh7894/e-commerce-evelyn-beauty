@@ -151,6 +151,8 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
     });
   }
 };
+
+//dynamic search
 exports.searchProducts = async (req, res) => {
   try {
     const keyword = req.query.keyword;
