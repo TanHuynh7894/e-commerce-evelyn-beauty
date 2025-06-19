@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 const session = require("express-session");
 const passport = require("./auth/passport");
 const productsRoutes = require("./routes/productRoutes");
-// 👉 Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
+//  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 
@@ -28,10 +28,10 @@ app.use(passport.session());
 
 // 🏠 Route kiểm tra server
 app.get("/", (req, res) => {
-  res.send("✅ Server Evelyn Beauty hoạt động! Vào /auth để dùng API.");
+  res.send(" Server Evelyn Beauty hoạt động! Vào /auth để dùng API.");
 });
 
-// ✅ Mount tất cả route vào /auth
+//  Mount tất cả route vào /auth
 app.use("/auth", authRoutes); // Bao gồm login, register, forgot-password, reset-password, OTP, Google, và cả protected
 
 app.use("/api/protected", authRoutes);
@@ -46,5 +46,5 @@ app.use("/api/accounts", authRoutes);
 // Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Backend đang chạy tại http://localhost:${PORT}`);
+  console.log(` Backend đang chạy tại http://localhost:${PORT}`);
 });

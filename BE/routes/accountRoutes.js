@@ -80,11 +80,6 @@ router.get(
 router.post("/create", verifyToken, requireRole("OS"), createAccount);
 router.get("/all", verifyToken, requireRole("OS"), getAllAccounts);
 router.put("/update/:accountId", verifyToken, requireRole("OS"), updateAccount);
-router.delete(
-  "/delete/:accountId",
-  verifyToken,
-  requireRole("OS"),
-  deleteAccount
-);
+router.delete("/delete/:accountId",verifyToken,requireRole("OS"),deleteAccount);
 
 module.exports = router;
