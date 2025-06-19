@@ -58,7 +58,7 @@ const createProfile = async (req, res) => {
 
     // Tạo profileId mới
     const profileId =
-      "PF" + Date.now() + Math.random().toString(36).substr(2, 5);
+      "PF" + Date.now();
 
     // Tạo profile mới
     const newProfile = await Profile.create({
@@ -184,7 +184,7 @@ const getAllProfilesOfAccount = async (req, res) => {
   try {
     const { accountId } = req.user;
     const profiles = await Profile.findAll({
-      where: { accountId },
+      where: { accountId, status: "ON" },
       attributes: [
         "profileId",
         "name",
