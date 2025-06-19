@@ -22,7 +22,7 @@ const {
 router.get(
   "/",
   verifyToken,
-  requireRole("CU"),
+  requireRole("CU", "SF"),
   profileRateLimit,
   getAllProfilesOfAccount
 );
@@ -35,7 +35,6 @@ router.get(
   profileRateLimit,
   getMyProfile
 );
-
 //Tạo profile mới cho customer
 // POST /api/profiles
 router.post(
@@ -68,6 +67,30 @@ router.delete(
   requireRole("CU"),
   profileRateLimit,
   deleteProfileById
+);
+
+// Route cho OS lấy tất cả profile của các account có role là SF
+router.get(
+  "/staff-all",
+  verifyToken,
+  requireRole("OS"),
+  require("../controllers/profiles.controllers").getAllProfilesOfStaff
+);
+
+// Route cho OS tạo profile mới cho accountId có role là SF
+router.post(
+  "/staff-create",
+  verifyToken,
+  requireRole("OS"),
+  require("../controllers/profiles.controllers").createProfileForStaff
+);
+
+// Route cho OS cập nhật profile của accountId có role là SF
+router.put(
+  "/staff-update",
+  verifyToken,
+  requireRole("OS"),
+  require("../controllers/profiles.controllers").updateProfileOfStaff
 );
 
 module.exports = router;
