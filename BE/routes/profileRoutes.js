@@ -93,4 +93,12 @@ router.put(
   require("../controllers/profiles.controllers").updateProfileOfStaff
 );
 
+// Route cho OS xóa profile của accountId có role là SF
+router.delete(
+  "/staff-delete",
+  verifyToken,
+  requireRole("OS"),
+  require("../controllers/profiles.controllers").deleteProfileOfStaffById
+);
+
 module.exports = router;

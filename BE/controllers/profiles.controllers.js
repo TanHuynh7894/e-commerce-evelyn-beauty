@@ -362,6 +362,51 @@ const updateProfileOfStaff = async (req, res) => {
   }
 };
 
+// OS xóa profile của accountId có role là SF
+const deleteProfileOfStaffById = async (req, res) => {
+  try {
+    const { role } = req.user;
+    const { accountId, profileId } = req.body;
+    if (role !== "OS") {
+      return res.status(403).json({ message: "Không có quyền truy cập" });
+    }
+    // Kiểm tra accountId có tồn tại và là role SF không
+    const staffAccount = await Account.findOne({
+      where: { accountId, role: "SF" },
+    });
+    if (!staffAccount) {
+      return res.status(404).json({
+        message: "Không tìm thấy account staff hoặc không phải role SF",
+      });
+    }
+    // Kiểm tra profile có tồn tại không
+    const profile = await Profile.findOne({ where: { profileId, accountId } });
+    if (!profile) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy profile cho account staff này" });
+    }
+    // Kiểm tra xem profile này có Order nào không
+    const order = await Order.findOne({ where: { profileId } });
+    if (order) {
+      // Nếu có Order, update status thành OFF
+      await profile.update({ status: "OFF" });
+      return res
+        .status(200)
+        .json({ message: "Profile đã có đơn hàng, chuyển trạng thái OFF" });
+    } else {
+      // Nếu không có Order, xóa profile
+      await profile.destroy();
+      return res.status(200).json({ message: "Xóa profile thành công" });
+    }
+  } catch (error) {
+    console.error("Lỗi khi xóa profile staff:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi xóa profile staff" });
+  }
+};
+
 module.exports = {
   getMyProfile,
   createProfile,
@@ -371,4 +416,5 @@ module.exports = {
   getAllProfilesOfStaff,
   createProfileForStaff,
   updateProfileOfStaff,
+  deleteProfileOfStaffById,
 };
