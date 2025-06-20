@@ -92,7 +92,7 @@ const createProfile = async (req, res) => {
   }
 };
 
-// ✅ Cập nhật profile theo profileId truyền qua query string
+// Cập nhật profile theo profileId truyền qua query string
 const updateProfileById = async (req, res) => {
   try {
     const { profileId } = req.query;
@@ -140,7 +140,7 @@ const updateProfileById = async (req, res) => {
   }
 };
 
-// ✅ Xóa profile theo profileId truyền qua query string
+// Xóa profile theo profileId truyền qua query string
 const deleteProfileById = async (req, res) => {
   try {
     const { profileId } = req.query;
