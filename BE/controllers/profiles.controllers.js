@@ -179,7 +179,7 @@ const deleteProfileById = async (req, res) => {
   }
 };
 
-// ✅ Lấy tất cả profile của account hiện tại
+//Lấy tất cả profile của account hiện tại
 const getAllProfilesOfAccount = async (req, res) => {
   try {
     const { accountId } = req.user;
