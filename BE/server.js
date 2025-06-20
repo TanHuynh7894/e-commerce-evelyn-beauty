@@ -7,6 +7,7 @@ const productsRoutes = require("./routes/productRoutes");
 //  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
 const profileRoutes = require("./routes/profileRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
 
 dotenv.config();
 
@@ -43,6 +44,10 @@ app.use("/api/profiles", profileRoutes);
 
 //Route cho accounts
 app.use("/api/accounts", authRoutes);
+
+//Route cho categories
+app.use("/api/categories", categoryRoutes);
+
 // Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
