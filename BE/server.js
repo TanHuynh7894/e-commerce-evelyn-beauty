@@ -3,10 +3,12 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const session = require("express-session");
 const passport = require("./auth/passport");
+
 const productsRoutes = require("./routes/productRoutes");
 //  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
 const profileRoutes = require("./routes/profileRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 
 dotenv.config();
 
@@ -43,6 +45,9 @@ app.use("/api/profiles", profileRoutes);
 
 //Route cho accounts
 app.use("/api/accounts", authRoutes);
+
+//Route cho orders
+app.use("/api/orders", orderRoutes);
 // Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
