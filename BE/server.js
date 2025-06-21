@@ -7,6 +7,7 @@ const productsRoutes = require("./routes/productRoutes");
 //  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
 const profileRoutes = require("./routes/profileRoutes");
+const promotionProgramRoutes = require("./routes/promotionProgramRoutes");
 
 dotenv.config();
 
@@ -40,6 +41,9 @@ app.use("/api/products", productsRoutes);
 
 //Route cho profiles
 app.use("/api/profiles", profileRoutes);
+
+//Route cho promotion programs
+app.use("/api/promotion-programs", promotionProgramRoutes);
 
 //Route cho accounts
 app.use("/api/accounts", authRoutes);
