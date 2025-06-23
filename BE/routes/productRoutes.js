@@ -31,9 +31,19 @@ router.get("/search", validateSearchKeyword, productsController.searchProducts);
 router.get("/recommend", paginate, productsController.getRecommendProducts);
 
 //importNewProduct
-router.post("/importProduct", verifyToken, requireRole("SF", "OS"), productsController.importNewProduct);
+router.post(
+  "/importProduct",
+  verifyToken,
+  requireRole("SF", "OS"),
+  productsController.importNewProduct
+);
 
 //updateProduct
-router.patch("/updateProduct", verifyToken, requireRole("SF", "OS"), productsController.updateProduct);
+router.patch(
+  "/updateProduct",
+  verifyToken,
+  requireRole("SF", "OS"),
+  productsController.updateProduct
+);
 
 module.exports = router;
