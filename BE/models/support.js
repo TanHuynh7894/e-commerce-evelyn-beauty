@@ -14,7 +14,7 @@ const Support = sequelize.define('Support', {
   },
   accountIdStaff: {
     type: DataTypes.STRING(20),
-    allowNull: false,
+    allowNull: true,
     field: 'account_id_staff'
   },
   dateCreate: {

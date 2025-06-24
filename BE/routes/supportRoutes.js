@@ -16,16 +16,16 @@ router.use(verifyToken);
 // Customer tạo support
 router.post('/', createSupport);
 
-// Lấy tất cả support của mình (chỉ staff)
-router.get('/', requireRole('SF'), getAllSupports);
+// Lấy tất cả support của mình
+router.get('/', getAllSupports);
 
-// Lấy support theo id (chỉ staff phụ trách hoặc customer tạo mới xem được)
-router.get('/:id', canAccessSupport, getSupportById);
+// Lấy support theo id
+router.post('/detail', canAccessSupport, getSupportById);
 
-// Staff xử lý support (chỉ staff phụ trách)
-router.put('/:id/resolve', requireRole('SF'), canAccessSupport, resolveSupport);
+// Staff xử lý support
+router.put('/resolve', requireRole('SF'), resolveSupport);
 
 // Customer xóa support của mình khi chưa xử lý
-router.delete('/:id', canAccessSupport, deleteSupport);
+router.delete('/', canAccessSupport, deleteSupport);
 
-module.exports = router; 
+module.exports = router;
