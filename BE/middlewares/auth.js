@@ -3,13 +3,22 @@ const fs = require("fs");
 const path = require("path");
 const { Account } = require("../models");
 
+
 const logDbAccess = async (req, res, next) => {
   try {
     const user = req.user;
     if (user && (user.role === 'SF' || user.role === 'OS')) {
-      const logEntry = `[${new Date().toISOString()}] ${user.accountId} (${user.role}) - ${req.method} ${req.originalUrl}\n`;
-      const logPath = path.join(__dirname, '../logs/db_access.log');
+      const logDir = path.join(__dirname, '../logs');
+      const logPath = path.join(logDir, 'db_access.log');
 
+      // Tạo thư mục nếu chưa có
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true }); // tạo thư mục logs/
+      }
+
+      const logEntry = `[${new Date().toISOString()}] ${user.accountId} (${user.role}) - ${req.method} ${req.originalUrl}\n`;
+
+      // Ghi nội dung vào file log
       fs.appendFile(logPath, logEntry, (err) => {
         if (err) {
           console.error('Lỗi ghi log DB:', err.message);
@@ -20,9 +29,8 @@ const logDbAccess = async (req, res, next) => {
     console.error('Lỗi middleware ghi log:', err.message);
   }
 
-  next();
+  next(); // tiếp tục xử lý request
 };
-
 
 //  Middleware xác thực JWT và Status tài khoản phải ON
 const verifyToken = async (req, res, next) => {
