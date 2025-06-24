@@ -15,4 +15,31 @@ router.get(
   categoryForProductController.logAllCategoryForProduct
 );
 
+// Route tạo categoryForProduct, chỉ cho OS và SF
+router.post(
+  "/create",
+  verifyToken,
+  requireRole("OS", "SF"),
+  logCategoryForProductRequest,
+  categoryForProductController.createCategoryForProduct
+);
+
+// Route xóa categoryForProduct, chỉ cho OS và SF
+router.delete(
+  "/delete",
+  verifyToken,
+  requireRole("OS", "SF"),
+  logCategoryForProductRequest,
+  categoryForProductController.deleteCategoryForProduct
+);
+
+// Route cập nhật categoryForProduct, chỉ cho OS và SF
+router.put(
+  "/update",
+  verifyToken,
+  requireRole("OS", "SF"),
+  logCategoryForProductRequest,
+  categoryForProductController.updateCategoryForProduct
+);
+
 module.exports = router;
