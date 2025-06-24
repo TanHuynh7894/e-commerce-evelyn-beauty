@@ -1,4 +1,4 @@
-const { PromotionProgram, Account } = require("../models");
+const { PromotionProgram, Account , Order } = require("../models");
 const { Op } = require("sequelize");
 
 // Lấy promotion programs đang hoạt động (cho role CU - Customer)
@@ -106,27 +106,43 @@ exports.softDeletePromotionProgram = async (req, res) => {
   try {
     const promotionProgram = req.promotionProgram; // from checkPromotionProgramExists middleware
 
-    if (promotionProgram.status === "OFF") {
-      return res.status(400).json({
-        message: "Chương trình khuyến mãi này đã được tắt từ trước.",
+    // Kiểm tra xem có đơn hàng nào dùng chương trình khuyến mãi này không
+    const hasOrder = await Order.findOne({
+      where: { programId: promotionProgram.programId }
+    });
+
+    if (hasOrder) {
+      // Nếu có liên kết với đơn hàng → chỉ set status = 'OFF'
+      if (promotionProgram.status === "OFF") {
+        return res.status(400).json({
+          message: "Chương trình khuyến mãi này đã được tắt từ trước.",
+        });
+      }
+
+      promotionProgram.status = "OFF";
+      await promotionProgram.save();
+
+      return res.json({
+        message: "Tắt chương trình khuyến mãi thành công (vì có đơn hàng liên quan)",
+        data: promotionProgram,
       });
     }
 
-    promotionProgram.status = "OFF";
-    await promotionProgram.save();
-
-    res.json({
-      message: "Tắt chương trình khuyến mãi thành công",
-      data: promotionProgram,
+    // Nếu không có liên kết với đơn hàng → xóa vĩnh viễn
+    await promotionProgram.destroy();
+    return res.json({
+      message: "Xóa vĩnh viễn chương trình khuyến mãi thành công (không liên quan đơn hàng)",
     });
+
   } catch (error) {
-    console.error("Lỗi khi tắt promotion program:", error);
+    console.error("Lỗi khi xử lý chương trình khuyến mãi:", error);
     res.status(500).json({
-      message: "Lỗi server khi tắt promotion program",
+      message: "Lỗi server khi xử lý chương trình khuyến mãi",
       error: error.message,
     });
   }
 };
+
 
 // Tạo mới promotion program (cho role OS - Owner/Staff)
 exports.createPromotionProgram = async (req, res) => {
