@@ -178,24 +178,24 @@ exports.searchProducts = async (req, res) => {
   2. rate != null
   3. trung bình rate của tất cả >= 4.5
   4. trả về 10 sản phẩm
-*/ 
+*/
 
- exports.getRecommendProducts = async (req, res) => {
+exports.getRecommendProducts = async (req, res) => {
   try {
     const products = await OrderDetail.findAll({
-      attributes: ['productId', 'quantity', 'rate'],
+      attributes: ["productId", "quantity", "rate"],
       include: [
         {
           model: Product,
-          as: 'product',
-          attributes: ['image', 'name']
+          as: "product",
+          attributes: ["image", "name"],
         },
         {
           model: Order,
-          as: 'order',
-          attributes: ['status']
-        }
-      ]
+          as: "order",
+          attributes: ["status"],
+        },
+      ],
     });
 
     const productMap = {};
@@ -203,11 +203,11 @@ exports.searchProducts = async (req, res) => {
     for (const item of products) {
       const { productId, quantity, rate } = item;
       const status = item.order?.status;
-      const name = item.product?.name || 'Unknown';
+      const name = item.product?.name || "Unknown";
       const image = item.product?.image || null;
 
       // Lọc: chỉ lấy đơn hoàn thành và có đánh giá
-      if (status !== 'done' || rate == null) continue;
+      if (status !== "done" || rate == null) continue;
 
       if (!productMap[productId]) {
         productMap[productId] = {
@@ -215,7 +215,7 @@ exports.searchProducts = async (req, res) => {
           image,
           quantity: quantity || 0,
           totalRate: rate,
-          countRate: 1
+          countRate: 1,
         };
       } else {
         productMap[productId].quantity += quantity || 0;
@@ -226,30 +226,31 @@ exports.searchProducts = async (req, res) => {
 
     const result = Object.entries(productMap)
       .map(([productId, data]) => {
-        const averageRate = parseFloat((data.totalRate / data.countRate).toFixed(2));
+        const averageRate = parseFloat(
+          (data.totalRate / data.countRate).toFixed(2)
+        );
         return {
           productId,
           name: data.name,
           image: data.image,
           quantitySold: data.quantity,
           averageRate,
-          countRate: data.countRate
+          countRate: data.countRate,
         };
       })
-      .filter(p => p.averageRate > 4.5)
+      .filter((p) => p.averageRate > 4.5)
       .sort((a, b) => b.averageRate - a.averageRate) // hoặc sort theo quantitySold nếu muốn
       .slice(0, 10); // Top 10 sản phẩm
 
     return res.status(200).json({
-      message: 'Lấy sản phẩm đề xuất thành công',
-      data: result
+      message: "Lấy sản phẩm đề xuất thành công",
+      data: result,
     });
-
   } catch (error) {
-    console.error('Error fetching recommended products:', error);
+    console.error("Error fetching recommended products:", error);
     return res.status(500).json({
-      message: 'Lỗi server khi lấy sản phẩm đề xuất',
-      error: error.message
+      message: "Lỗi server khi lấy sản phẩm đề xuất",
+      error: error.message,
     });
   }
 };
@@ -257,10 +258,13 @@ exports.searchProducts = async (req, res) => {
 // thêm 1 sản phẩm mới
 exports.importNewProduct = async (req, res) => {
   try {
+    console.log("Body nhận được:", JSON.stringify(req.body, null, 2));
     const { products } = req.body;
 
     if (!Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ message: 'Danh sách sản phẩm không hợp lệ hoặc rỗng.' });
+      return res
+        .status(400)
+        .json({ message: "Danh sách sản phẩm không hợp lệ hoặc rỗng." });
     }
 
     const created = [];
@@ -275,22 +279,23 @@ exports.importNewProduct = async (req, res) => {
         price,
         description,
         image,
-        categoryIds = []
+        categoryIds = [],
       } = item;
 
       if (!name || !price || !brand) {
-        skipped.push({ name, reason: 'Thiếu thông tin bắt buộc' });
+        skipped.push({ name, reason: "Thiếu thông tin bắt buộc" });
         continue;
       }
 
-      const newProductId = 'PD' + Date.now();
+      const newProductId = "PD" + Date.now();
 
+      // Kiểm tra sản phẩm đã tồn tại (KHÔNG kiểm tra image)
       const existing = await Product.findOne({
-        where: { name, origin, quantity, brand, price, description, image }
+        where: { name, origin, quantity, brand, price, description },
       });
 
       if (existing) {
-        skipped.push({ name, reason: 'Sản phẩm đã tồn tại' });
+        skipped.push({ name, reason: "Sản phẩm đã tồn tại" });
         continue;
       }
 
@@ -302,7 +307,7 @@ exports.importNewProduct = async (req, res) => {
         brand,
         price,
         description,
-        image
+        image,
       });
 
       // Gán danh mục nếu có
@@ -314,20 +319,19 @@ exports.importNewProduct = async (req, res) => {
     }
 
     return res.status(201).json({
-      message: 'Import sản phẩm thành công',
+      message: "Import sản phẩm thành công",
       imported: created.length,
       skipped: skipped.length,
       data: {
         created,
-        skipped
-      }
+        skipped,
+      },
     });
-
   } catch (error) {
-    console.error('Lỗi khi import sản phẩm:', error);
+    console.error("Lỗi khi import sản phẩm:", error);
     return res.status(500).json({
-      message: 'Lỗi server khi import sản phẩm',
-      error: error.message
+      message: "Lỗi server khi import sản phẩm",
+      error: error.message,
     });
   }
 };
@@ -341,32 +345,45 @@ exports.updateProduct = async (req, res) => {
     const product = await Product.findByPk(productId);
 
     if (!product) {
-      return res.status(404).json({ message: 'Không tìm thấy sản phẩm.' });
+      return res.status(404).json({ message: "Không tìm thấy sản phẩm." });
     }
 
     // Danh sách các trường được phép cập nhật
-    const allowedFields = ['name', 'origin', 'quantity', 'brand', 'price', 'description', 'image'];
-    const updateKeys = Object.keys(updates).filter(key => allowedFields.includes(key));
+    const allowedFields = [
+      "name",
+      "origin",
+      "quantity",
+      "brand",
+      "price",
+      "description",
+      "image",
+    ];
+    const updateKeys = Object.keys(updates).filter((key) =>
+      allowedFields.includes(key)
+    );
 
     if (updateKeys.length === 0) {
-      return res.status(400).json({ message: 'Không có trường hợp lệ để cập nhật.' });
+      return res
+        .status(400)
+        .json({ message: "Không có trường hợp lệ để cập nhật." });
     }
 
-    const isOnlyQuantity = updateKeys.length === 1 && updateKeys[0] === 'quantity';
+    const isOnlyQuantity =
+      updateKeys.length === 1 && updateKeys[0] === "quantity";
 
     //Trường hợp chỉ update quantity
     if (isOnlyQuantity) {
       await product.update({ quantity: updates.quantity });
       return res.status(200).json({
-        message: 'Cập nhật số lượng thành công.',
-        updatedProduct: product
+        message: "Cập nhật số lượng thành công.",
+        updatedProduct: product,
       });
     }
 
     //Trường hợp update thông tin khác → đánh dấu "off" và tạo mới
-    await product.update({ status: 'OFF' });
+    await product.update({ status: "OFF" });
 
-    const newProductId = 'PD' + Date.now();
+    const newProductId = "PD" + Date.now();
 
     const newProduct = await Product.create({
       productId: newProductId,
@@ -377,19 +394,18 @@ exports.updateProduct = async (req, res) => {
       price: updates.price || product.price,
       description: updates.description || product.description,
       image: updates.image || product.image,
-      status: 'ON'
+      status: "ON",
     });
 
     return res.status(200).json({
-      message: 'Đã tạo sản phẩm mới và update status sản phẩm cũ thành off.',
-      newProduct
+      message: "Đã tạo sản phẩm mới và update status sản phẩm cũ thành off.",
+      newProduct,
     });
-
   } catch (error) {
-    console.error('Lỗi khi cập nhật sản phẩm:', error);
+    console.error("Lỗi khi cập nhật sản phẩm:", error);
     return res.status(500).json({
-      message: 'Lỗi server khi cập nhật sản phẩm',
-      error: error.message
+      message: "Lỗi server khi cập nhật sản phẩm",
+      error: error.message,
     });
   }
 };

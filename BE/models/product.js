@@ -15,7 +15,27 @@ const Product = sequelize.define(
     brand: DataTypes.STRING(20),
     price: DataTypes.DECIMAL(15, 0),
     description: DataTypes.STRING(255),
-    image: DataTypes.STRING(2083),
+    image: {
+      type: DataTypes.TEXT,
+      get() {
+        const rawValue = this.getDataValue("image");
+        if (!rawValue) return [];
+        try {
+          return JSON.parse(rawValue);
+        } catch (error) {
+          return rawValue ? [rawValue] : [];
+        }
+      },
+      set(value) {
+        if (Array.isArray(value)) {
+          this.setDataValue("image", JSON.stringify(value));
+        } else if (typeof value === "string") {
+          this.setDataValue("image", JSON.stringify([value]));
+        } else {
+          this.setDataValue("image", JSON.stringify([]));
+        }
+      },
+    },
   },
   {
     tableName: "products",
