@@ -5,12 +5,14 @@ const CartItem = sequelize.define('CartItem', {
   cartId: {
     type: DataTypes.STRING(20),
     allowNull: false,
-    field: 'cart_id'
+    field: 'cart_id',
+    primaryKey: true
   },
   productId: {
     type: DataTypes.STRING(20),
     allowNull: false,
-    field: 'product_id'
+    field: 'product_id',
+    primaryKey: true
   },
   quantity: {
     type: DataTypes.INTEGER,
