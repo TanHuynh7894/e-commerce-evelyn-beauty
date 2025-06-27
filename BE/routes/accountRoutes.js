@@ -20,7 +20,7 @@ router.post("/google", accountController.googleLogin);
 
 // Quên mật khẩu (JWT không lưu DB)
 router.post("/forgot-password", accountController.forgotPassword);
-router.post("/reset-password", accountController.resetPassword);
+router.post("/reset-password",validatePassword, accountController.resetPassword);
 
 //Logout route
 router.post("/logout", accountController.logout);
