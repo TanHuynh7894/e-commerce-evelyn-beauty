@@ -16,4 +16,10 @@ router.get('/', verifyToken, requireRole('SF', 'OS'), logDbAccess, orderControll
 // Chỉ Staff/OS được phép cập nhật status đơn hàng + ghi log
 router.put('/:orderId', verifyToken, requireRole('SF', 'OS'), logDbAccess, orderController.updateOrderStatus);
 
+// Chỉ Customer được phép hủy đơn hàng của mình
+router.post("/cancel/:orderId", verifyToken, requireRole("CU"), orderController.cancelOrder);
+
+// Chỉ Customer được phép mua ngay (buy now)
+router.post('/buy-now', verifyToken, requireRole("CU"), orderController.buyNow);
+
 module.exports = router;

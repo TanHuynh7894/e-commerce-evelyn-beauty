@@ -93,7 +93,7 @@ exports.updateOrderStatus = async (req, res) => {
         if (!order) return res.status(404).json({ message: 'Không tìm thấy order' });
 
         order.status = status;
-      
+
 
         await order.save();
 
@@ -103,4 +103,79 @@ exports.updateOrderStatus = async (req, res) => {
         res.status(500).json({ message: 'Lỗi cập nhật trạng thái đơn hàng' });
     }
 };
+
+exports.cancelOrder = async (req, res) => {
+    const { orderId } = req.params;
+    const accountId = req.user.accountId;
+
+    try {
+        const order = await Order.findByPk(orderId);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        }
+
+        // Check quyền sở hữu đơn hàng
+        if (order.accountId !== accountId) {
+            return res.status(403).json({ message: 'Bạn không có quyền hủy đơn hàng này' });
+        }
+
+        // Check trạng thái có thể hủy không
+        if (order.status !== 'in_transit') {
+            return res.status(400).json({ message: 'Chỉ có thể hủy đơn đang giao (in_transit)' });
+        }
+
+
+        order.status = 'cancel';
+        await order.save();
+
+        res.json({ message: 'Đã hủy đơn hàng thành công', orderId: order.orderId });
+    } catch (err) {
+        console.error('Lỗi hủy đơn hàng:', err);
+        res.status(500).json({ message: 'Không thể hủy đơn hàng' });
+    }
+};
+
+exports.buyNow = async (req, res) => {
+  const { productId, paymentId, profileId, programId, shipFee } = req.body;
+  const accountId = req.user.accountId;
+
+  try {
+    const orderId = 'OD' + Date.now();
+
+    // Bắt buộc các field này phải có do allowNull: false
+    if (!productId || !paymentId || !profileId || !programId) {
+      return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' });
+    }
+
+    // Tạo đơn hàng
+    const newOrder = await Order.create({
+      orderId,
+      accountId,
+      date: new Date(),
+      status: 'in_transit',
+      programId,
+      paymentId,
+      profileId,
+      shipFee: shipFee || 0,
+    });
+
+    // Tạo chi tiết đơn hàng
+    await OrderDetail.create({
+      orderDetailId: require('nanoid').nanoid(20),
+      orderId,
+      productId,
+      quantity: 1,
+    });
+
+    res.status(201).json({
+      message: 'Mua ngay thành công',
+      orderId,
+    });
+  } catch (error) {
+    console.error('Buy Now Error:', error);
+    res.status(500).json({ message: 'Không thể thực hiện mua ngay' });
+  }
+};
+
 
