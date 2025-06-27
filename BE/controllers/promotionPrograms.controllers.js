@@ -1,213 +1,234 @@
-const { Profile, Account, Order } = require("../models");
+const { PromotionProgram, Account , Order } = require("../models");
+const { Op } = require("sequelize");
 
-//Lấy thông tin profile của customer hiện tại
-const getMyProfile = async (req, res) => {
+// Lấy promotion programs đang hoạt động (cho role CU - Customer)
+exports.getActivePromotionPrograms = async (req, res) => {
   try {
-    const { accountId } = req.user;
+    const currentDate = new Date();
+    const { page, limit, offset } = req.pagination;
 
-    // Tìm profile của customer
-    const profile = await Profile.findOne({
-      where: { accountId },
-      attributes: [
-        "profileId",
-        "name",
-        "phone",
-        "address",
-        "gender",
-        "birthday",
-        "image",
-      ],
+    const { count, rows: promotionPrograms } =
+      await PromotionProgram.findAndCountAll({
+        where: {
+          startDate: {
+            [Op.lte]: currentDate,
+          },
+          endDate: {
+            [Op.gte]: currentDate,
+          },
+        },
+        limit,
+        offset,
+        order: [["startDate", "DESC"]],
+      });
+
+    res.json({
+      message: "Lấy danh sách promotion programs đang hoạt động thành công",
+      data: {
+        promotionPrograms,
+        pagination: {
+          total: count,
+          page,
+          limit,
+          totalPages: Math.ceil(count / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy promotion programs đang hoạt động:", error);
+    res.status(500).json({
+      message: "Lỗi server khi lấy danh sách promotion programs đang hoạt động",
+      error: error.message,
+    });
+  }
+};
+
+// Lấy tất cả promotion programs có status ON (cho role OS)
+exports.getOnPromotionProgramsForOS = async (req, res) => {
+  try {
+    const { page, limit, offset } = req.pagination;
+
+    const { count, rows: promotionPrograms } =
+      await PromotionProgram.findAndCountAll({
+        where: {
+          status: "ON",
+        },
+        limit,
+        offset,
+        order: [["startDate", "DESC"]],
+      });
+
+    res.json({
+      message: "Lấy danh sách promotion programs có status 'ON' thành công",
+      data: {
+        promotionPrograms,
+        pagination: {
+          total: count,
+          page,
+          limit,
+          totalPages: Math.ceil(count / limit),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy ON promotion programs:", error);
+    res.status(500).json({
+      message: "Lỗi server khi lấy ON promotion programs",
+      error: error.message,
+    });
+  }
+};
+
+// Update tên promotion program (cho role OS)
+exports.updatePromotionProgramName = async (req, res) => {
+  try {
+    const { name } = req.body;
+    const promotionProgram = req.promotionProgram; // Lấy từ middleware checkPromotionProgramExists
+
+    promotionProgram.name = name;
+    await promotionProgram.save();
+
+    res.json({
+      message: "Cập nhật tên promotion program thành công",
+      data: promotionProgram,
+    });
+  } catch (error) {
+    console.error("Lỗi khi cập nhật tên promotion program:", error);
+    res.status(500).json({
+      message: "Lỗi server khi cập nhật tên promotion program",
+      error: error.message,
+    });
+  }
+};
+
+// Soft delete promotion program (set status to OFF for role OS)
+exports.softDeletePromotionProgram = async (req, res) => {
+  try {
+    const promotionProgram = req.promotionProgram; // from checkPromotionProgramExists middleware
+
+    // Kiểm tra xem có đơn hàng nào dùng chương trình khuyến mãi này không
+    const hasOrder = await Order.findOne({
+      where: { programId: promotionProgram.programId }
     });
 
-    if (!profile) {
-      // Nếu chưa có profile, trả về thông tin để tạo mới
-      return res.status(404).json({
-        message: "Chưa có profile. Vui lòng tạo profile mới.",
-        hasProfile: false,
-        accountId: accountId,
+    if (hasOrder) {
+      // Nếu có liên kết với đơn hàng → chỉ set status = 'OFF'
+      if (promotionProgram.status === "OFF") {
+        return res.status(400).json({
+          message: "Chương trình khuyến mãi này đã được tắt từ trước.",
+        });
+      }
+
+      promotionProgram.status = "OFF";
+      await promotionProgram.save();
+
+      return res.json({
+        message: "Tắt chương trình khuyến mãi thành công (vì có đơn hàng liên quan)",
+        data: promotionProgram,
       });
     }
 
-    // Nếu có profile, trả về thông tin profile
-    return res.status(200).json({
-      message: "Lấy thông tin profile thành công",
-      hasProfile: true,
-      profile: {
-        profileId: profile.profileId,
-        name: profile.name,
-        phone: profile.phone,
-        address: profile.address,
-        gender: profile.gender,
-        birthday: profile.birthday,
-        image: profile.image,
-      },
+    // Nếu không có liên kết với đơn hàng → xóa vĩnh viễn
+    await promotionProgram.destroy();
+    return res.json({
+      message: "Xóa vĩnh viễn chương trình khuyến mãi thành công (không liên quan đơn hàng)",
     });
+
   } catch (error) {
-    console.error("Lỗi khi lấy profile:", error);
-    return res.status(500).json({
-      message: "Lỗi server khi lấy thông tin profile",
+    console.error("Lỗi khi xử lý chương trình khuyến mãi:", error);
+    res.status(500).json({
+      message: "Lỗi server khi xử lý chương trình khuyến mãi",
+      error: error.message,
     });
   }
 };
 
-// Tạo profile mới cho customer
-const createProfile = async (req, res) => {
+
+// Tạo mới promotion program (cho role OS - Owner/Staff)
+exports.createPromotionProgram = async (req, res) => {
   try {
-    const { accountId } = req.user;
-    const { name, phone, address, gender, birthday, image } = req.body;
+    const { name, condition1, condition2, value, startDate, endDate } =
+      req.body;
+    const accountId = req.user.accountId; // Lấy accountId của người tạo từ JWT token
 
-    // Tạo profileId mới
-    const profileId =
-      "PF" + Date.now();
+    // Validate required fields
+    if (
+      !name ||
+      !condition1 ||
+      value === undefined ||
+      value === null ||
+      !startDate ||
+      !endDate
+    ) {
+      return res.status(400).json({
+        message:
+          "Các trường name, condition1, value, startDate, endDate không được để trống",
+      });
+    }
 
-    // Tạo profile mới
-    const newProfile = await Profile.create({
-      profileId,
+    // Validate value
+    if (typeof value !== "number" || value <= 0) {
+      return res.status(400).json({
+        message: "Value phải là số dương",
+      });
+    }
+
+    // Validate dates
+    const startDateObj = new Date(startDate);
+    const endDateObj = new Date(endDate);
+    const currentDate = new Date();
+
+    if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
+      return res.status(400).json({
+        message: "startDate và endDate phải là định dạng ngày hợp lệ",
+      });
+    }
+
+    if (startDateObj >= endDateObj) {
+      return res.status(400).json({
+        message: "startDate phải nhỏ hơn endDate",
+      });
+    }
+
+    // Generate programId (format: PROMO + timestamp)
+    const timestamp = Date.now();
+    const programId = `PROMO${timestamp}`;
+
+    // Tạo promotion program mới
+    const newPromotionProgram = await PromotionProgram.create({
+      programId,
+      name,
+      condition1,
+      condition2: condition2 || null, // condition2 có thể null
+      value,
+      startDate: startDateObj,
+      endDate: endDateObj,
       accountId,
-      name,
-      phone,
-      address,
-      gender,
-      birthday,
-      image,
+      status: "ON", // Mặc định status là ON
     });
 
-    return res.status(201).json({
-      message: "Tạo profile thành công",
-      profile: {
-        profileId: newProfile.profileId,
-        name: newProfile.name,
-        phone: newProfile.phone,
-        address: newProfile.address,
-        gender: newProfile.gender,
-        birthday: newProfile.birthday,
-        image: newProfile.image,
+    // Xác định loại giảm giá
+    const discountType = value < 1 ? "Phần trăm" : "Số tiền cố định";
+    const discountValue =
+      value < 1
+        ? `${(value * 100).toFixed(0)}%`
+        : `${value.toLocaleString()} VNĐ`;
+
+    res.status(201).json({
+      message: "Tạo promotion program thành công",
+      data: {
+        promotionProgram: newPromotionProgram,
+        discountInfo: {
+          type: discountType,
+          value: discountValue,
+        },
       },
     });
   } catch (error) {
-    console.error("Lỗi khi tạo profile:", error);
-    return res.status(500).json({
-      message: "Lỗi server khi tạo profile",
+    console.error("Lỗi khi tạo promotion program:", error);
+    res.status(500).json({
+      message: "Lỗi server khi tạo promotion program",
+      error: error.message,
     });
   }
-};
-
-// Cập nhật profile theo profileId truyền qua query string
-const updateProfileById = async (req, res) => {
-  try {
-    const { profileId } = req.query;
-    const { accountId } = req.user;
-    const { name, phone, address, gender, birthday, image } = req.body;
-
-    if (!profileId) {
-      return res
-        .status(400)
-        .json({ message: "Thiếu profileId trên query string" });
-    }
-
-    // Chỉ cho phép update profile thuộc về accountId hiện tại
-    const profile = await Profile.findOne({ where: { profileId, accountId } });
-    if (!profile) {
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy profile hoặc không có quyền" });
-    }
-
-    await profile.update({
-      name,
-      phone,
-      address,
-      gender,
-      birthday,
-      image: image || profile.image,
-    });
-
-    return res.status(200).json({
-      message: "Cập nhật profile thành công",
-      profile: {
-        profileId: profile.profileId,
-        name: profile.name,
-        phone: profile.phone,
-        address: profile.address,
-        gender: profile.gender,
-        birthday: profile.birthday,
-        image: profile.image,
-      },
-    });
-  } catch (error) {
-    console.error("Lỗi khi cập nhật profile:", error);
-    return res.status(500).json({ message: "Lỗi server khi cập nhật profile" });
-  }
-};
-
-// Xóa profile theo profileId truyền qua query string
-const deleteProfileById = async (req, res) => {
-  try {
-    const { profileId } = req.query;
-    const { accountId } = req.user;
-
-    if (!profileId) {
-      return res
-        .status(400)
-        .json({ message: "Thiếu profileId trên query string" });
-    }
-
-    // Chỉ cho phép xóa profile thuộc về accountId hiện tại
-    const profile = await Profile.findOne({ where: { profileId, accountId } });
-    if (!profile) {
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy profile hoặc không có quyền" });
-    }
-
-    // Kiểm tra xem profile này có Order nào không
-    const order = await Order.findOne({ where: { profileId } });
-    if (order) {
-      // Nếu có Order, update status thành OFF
-      await profile.update({ status: "OFF" });
-      return res
-        .status(200)
-        .json({ message: "Profile đã có đơn hàng, chuyển trạng thái OFF" });
-    } else {
-      // Nếu không có Order, xóa profile
-      await profile.destroy();
-      return res.status(200).json({ message: "Xóa profile thành công" });
-    }
-  } catch (error) {
-    console.error("Lỗi khi xóa profile:", error);
-    return res.status(500).json({ message: "Lỗi server khi xóa profile" });
-  }
-};
-
-//Lấy tất cả profile của account hiện tại
-const getAllProfilesOfAccount = async (req, res) => {
-  try {
-    const { accountId } = req.user;
-    const profiles = await Profile.findAll({
-      where: { accountId, status: "ON" },
-      attributes: [
-        "profileId",
-        "name",
-        "phone",
-        "address",
-        "gender",
-        "birthday",
-        "image",
-      ],
-    });
-    return res.status(200).json({ profiles });
-  } catch (error) {
-    console.error("Lỗi khi lấy danh sách profile:", error);
-    return res
-      .status(500)
-      .json({ message: "Lỗi server khi lấy danh sách profile" });
-  }
-};
-
-module.exports = {
-  getMyProfile,
-  createProfile,
-  getAllProfilesOfAccount,
-  updateProfileById,
-  deleteProfileById,
 };
