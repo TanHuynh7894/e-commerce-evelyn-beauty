@@ -6,7 +6,7 @@ const CategoryProduct = sequelize.define(
   {
     categoryId: {
       type: DataTypes.STRING(20),
-      primaryKey: true,
+      foreignKey: true,
       field: "category_id",
       references: {
         model: "category",
@@ -15,7 +15,7 @@ const CategoryProduct = sequelize.define(
     },
     productId: {
       type: DataTypes.STRING(20),
-      primaryKey: true,
+      foreignKey: true,
       field: "product_id",
       references: {
         model: "products",
@@ -28,5 +28,16 @@ const CategoryProduct = sequelize.define(
     timestamps: false,
   }
 );
+
+CategoryProduct.associate = (models) => {
+  CategoryProduct.belongsTo(models.Category, {
+    foreignKey: "categoryId",
+    as: "category",
+  });
+  CategoryProduct.belongsTo(models.Product, {
+    foreignKey: "productId",
+    as: "product",
+  });
+};
 
 module.exports = CategoryProduct;
