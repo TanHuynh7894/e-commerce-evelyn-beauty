@@ -3,7 +3,7 @@ const { Profile, Account, Order } = require("../models");
 //Lấy thông tin profile của customer hiện tại
 const getMyProfile = async (req, res) => {
   try {
-    const { accountId } = req.user;
+    const { accountId, role } = req.user;
 
     // Tìm profile của customer
     const profile = await Profile.findOne({
@@ -20,12 +20,21 @@ const getMyProfile = async (req, res) => {
     });
 
     if (!profile) {
-      // Nếu chưa có profile, trả về thông tin để tạo mới
-      return res.status(404).json({
-        message: "Chưa có profile. Vui lòng tạo profile mới.",
-        hasProfile: false,
-        accountId: accountId,
-      });
+      // Nếu chưa có profile, trả về thông báo phù hợp cho role ST
+      if (role === "SF") {
+        return res.status(404).json({
+          message: "Chưa có profile, hãy liên hệ với chủ shop để tạo profile",
+          hasProfile: false,
+          accountId: accountId,
+        });
+      } else {
+        // Nếu không phải ST, giữ nguyên thông báo cũ
+        return res.status(404).json({
+          message: "Chưa có profile. Vui lòng tạo profile mới.",
+          hasProfile: false,
+          accountId: accountId,
+        });
+      }
     }
 
     // Nếu có profile, trả về thông tin profile
@@ -57,8 +66,7 @@ const createProfile = async (req, res) => {
     const { name, phone, address, gender, birthday, image } = req.body;
 
     // Tạo profileId mới
-    const profileId =
-      "PF" + Date.now();
+    const profileId = "PF" + Date.now();
 
     // Tạo profile mới
     const newProfile = await Profile.create({
@@ -140,7 +148,7 @@ const updateProfileById = async (req, res) => {
   }
 };
 
-// Xóa profile theo profileId truyền qua query string
+//Xóa profile theo profileId truyền qua query string
 const deleteProfileById = async (req, res) => {
   try {
     const { profileId } = req.query;
@@ -179,7 +187,7 @@ const deleteProfileById = async (req, res) => {
   }
 };
 
-//Lấy tất cả profile của account hiện tại
+// Lấy tất cả profile của account hiện tại
 const getAllProfilesOfAccount = async (req, res) => {
   try {
     const { accountId } = req.user;
@@ -204,10 +212,209 @@ const getAllProfilesOfAccount = async (req, res) => {
   }
 };
 
+// Lấy tất cả profile của các account có role là SF (chỉ cho OS)
+const getAllProfilesOfStaff = async (req, res) => {
+  try {
+    const { role } = req.user;
+    if (role !== "OS") {
+      return res.status(403).json({ message: "Không có quyền truy cập" });
+    }
+    // Lấy tất cả accountId có role là SF
+    const staffAccounts = await Account.findAll({
+      where: { role: "SF" },
+      attributes: ["accountId"],
+    });
+    const staffAccountIds = staffAccounts.map((acc) => acc.accountId);
+    // Lấy tất cả profile thuộc các accountId này
+    const profiles = await Profile.findAll({
+      where: { accountId: staffAccountIds, status: "ON" },
+      attributes: [
+        "profileId",
+        "name",
+        "phone",
+        "address",
+        "gender",
+        "birthday",
+        "image",
+        "accountId",
+      ],
+    });
+    return res.status(200).json({ profiles });
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách profile của staff:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi lấy danh sách profile của staff" });
+  }
+};
+
+// OS tạo profile mới cho accountId có role là SF
+const createProfileForStaff = async (req, res) => {
+  try {
+    const { role } = req.user;
+    const { accountId, name, phone, address, gender, birthday, image } =
+      req.body;
+    if (role !== "OS") {
+      return res.status(403).json({ message: "Không có quyền truy cập" });
+    }
+    // Kiểm tra accountId có tồn tại và là role SF không
+    const staffAccount = await Account.findOne({
+      where: { accountId, role: "SF" },
+    });
+    if (!staffAccount) {
+      return res.status(404).json({
+        message: "Không tìm thấy account staff hoặc không phải role SF",
+      });
+    }
+    // Tạo profileId mới
+    const profileId = "PF" + Date.now();
+    const newProfile = await Profile.create({
+      profileId,
+      accountId,
+      name,
+      phone,
+      address,
+      gender,
+      birthday,
+      image,
+    });
+    return res.status(201).json({
+      message: "Tạo profile cho staff thành công",
+      profile: {
+        profileId: newProfile.profileId,
+        name: newProfile.name,
+        phone: newProfile.phone,
+        address: newProfile.address,
+        gender: newProfile.gender,
+        birthday: newProfile.birthday,
+        image: newProfile.image,
+        accountId: newProfile.accountId,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi tạo profile cho staff:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi tạo profile cho staff" });
+  }
+};
+
+// OS cập nhật profile của accountId có role là SF
+const updateProfileOfStaff = async (req, res) => {
+  try {
+    const { role } = req.user;
+    const {
+      accountId,
+      profileId,
+      name,
+      phone,
+      address,
+      gender,
+      birthday,
+      image,
+    } = req.body;
+    if (role !== "OS") {
+      return res.status(403).json({ message: "Không có quyền truy cập" });
+    }
+    // Kiểm tra accountId có tồn tại và là role SF không
+    const staffAccount = await Account.findOne({
+      where: { accountId, role: "SF" },
+    });
+    if (!staffAccount) {
+      return res.status(404).json({
+        message: "Không tìm thấy account staff hoặc không phải role SF",
+      });
+    }
+    // Kiểm tra profile có tồn tại không
+    const profile = await Profile.findOne({ where: { profileId, accountId } });
+    if (!profile) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy profile cho account staff này" });
+    }
+    // Chỉ cập nhật các trường được truyền lên
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+    if (gender !== undefined) updateData.gender = gender;
+    if (birthday !== undefined) updateData.birthday = birthday;
+    if (image !== undefined) updateData.image = image;
+    await profile.update(updateData);
+    return res.status(200).json({
+      message: "Cập nhật profile cho staff thành công",
+      profile: {
+        profileId: profile.profileId,
+        name: profile.name,
+        phone: profile.phone,
+        address: profile.address,
+        gender: profile.gender,
+        birthday: profile.birthday,
+        image: profile.image,
+        accountId: profile.accountId,
+      },
+    });
+  } catch (error) {
+    console.error("Lỗi khi cập nhật profile cho staff:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi cập nhật profile cho staff" });
+  }
+};
+
+// OS xóa profile của accountId có role là SF
+const deleteProfileOfStaffById = async (req, res) => {
+  try {
+    const { role } = req.user;
+    const { accountId, profileId } = req.body;
+    if (role !== "OS") {
+      return res.status(403).json({ message: "Không có quyền truy cập" });
+    }
+    // Kiểm tra accountId có tồn tại và là role SF không
+    const staffAccount = await Account.findOne({
+      where: { accountId, role: "SF" },
+    });
+    if (!staffAccount) {
+      return res.status(404).json({
+        message: "Không tìm thấy account staff hoặc không phải role SF",
+      });
+    }
+    // Kiểm tra profile có tồn tại không
+    const profile = await Profile.findOne({ where: { profileId, accountId } });
+    if (!profile) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy profile cho account staff này" });
+    }
+    // Kiểm tra xem profile này có Order nào không
+    const order = await Order.findOne({ where: { profileId } });
+    if (order) {
+      // Nếu có Order, update status thành OFF
+      await profile.update({ status: "OFF" });
+      return res
+        .status(200)
+        .json({ message: "Profile đã có đơn hàng, chuyển trạng thái OFF" });
+    } else {
+      // Nếu không có Order, xóa profile
+      await profile.destroy();
+      return res.status(200).json({ message: "Xóa profile thành công" });
+    }
+  } catch (error) {
+    console.error("Lỗi khi xóa profile staff:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server khi xóa profile staff" });
+  }
+};
+
 module.exports = {
   getMyProfile,
   createProfile,
   getAllProfilesOfAccount,
   updateProfileById,
   deleteProfileById,
+  getAllProfilesOfStaff,
+  createProfileForStaff,
+  updateProfileOfStaff,
+  deleteProfileOfStaffById,
 };

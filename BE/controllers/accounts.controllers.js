@@ -108,9 +108,8 @@ const googleLogin = async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    const { email, name, sub } = payload;
-
-    let account = await Account.findOne({ where: { email } });
+    const { email, name } = payload;
+let account = await Account.findOne({ where: { email } });
 
     if (action === "login") {
       if (!account)
@@ -126,10 +125,36 @@ const googleLogin = async (req, res) => {
       });
     }
 
+    if (action === "register") {
+      if (account)
+        return res.status(409).json({ message: "Tài khoản đã tồn tại" });
+
+      const newAccountID = "AC" + Date.now();
+      const defaultPassword = await bcrypt.hash("google-auth", 10); // mật khẩu giả lập
+
+      const newAccount = await Account.create({
+        accountId: newAccountID,
+        name,
+        email,
+        password: defaultPassword,
+        role: "CU",
+        status: "ON",
+      });
+
+      const token = generateToken(newAccount);
+      const { password: _, ...accountSafe } = newAccount.get({ plain: true });
+
+      return res.status(201).json({
+        message: "Đăng ký thành công bằng Google",
+        account: accountSafe,
+        token,
+      });
+    }
+
     res.status(400).json({ message: "Hành động không hợp lệ" });
   } catch (err) {
     console.error("Lỗi xác thực Google:", err);
-    res.status(401).json({ message: "Token không hợp lệ" });
+    res.status(401).json({ message: "Token Google không hợp lệ" });
   }
 };
 
@@ -151,7 +176,7 @@ const verifyOtp = async (req, res) => {
     email,
     password: await bcrypt.hash(record.password, 10),
     role: "CU",
-    googleId: record.googleId,
+    status: "ON"
   });
 
   delete global.tempOtps[email];
@@ -185,7 +210,7 @@ const forgotPassword = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Lưu tạm OTP và thời hạn
-    global.resetOtps = global.resetOtps || {};
+global.resetOtps = global.resetOtps || {};
     global.resetOtps[email] = {
       otp,
       accountId: account.accountId,
@@ -206,7 +231,7 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-const resetPassword = async (req, res) => {
+const  resetPassword = async (req, res) => {
   const { email, otp, newPassword } = req.body;
 
   const record = global.resetOtps?.[email];
@@ -287,7 +312,7 @@ const getAllAccounts = async (req, res) => {
 };
 
 const updateAccount = async (req, res) => {
-  const { accountId } = req.params;
+const { accountId } = req.params;
   const { name, password } = req.body;
 
   try {

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const accountController = require("../controllers/accounts.controllers");
-const { verifyToken, requireRole } = require("../middlewares/auth");
+const { verifyToken, requireRole,validatePassword } = require("../middlewares/auth");
 const passport = require("../auth/passport");
 const {
   createAccount,
@@ -15,12 +15,12 @@ router.post("/verify-otp", accountController.verifyOtp);
 
 // Auth routes
 router.post("/login", accountController.loginAccount);
-router.post("/register", accountController.registerAccount);
+router.post("/register", validatePassword,accountController.registerAccount);
 router.post("/google", accountController.googleLogin);
 
 // Quên mật khẩu (JWT không lưu DB)
 router.post("/forgot-password", accountController.forgotPassword);
-router.post("/reset-password", accountController.resetPassword);
+router.post("/reset-password",validatePassword, accountController.resetPassword);
 
 //Logout route
 router.post("/logout", accountController.logout);
