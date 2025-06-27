@@ -11,6 +11,10 @@ const OrderDetail = sequelize.define('OrderDetail', {
     type: DataTypes.STRING(20),
     field: 'product_id'
   },
+  classificationId: {
+    type: DataTypes.STRING(20),
+    field: 'classification_id'
+  },
   orderId: {
     type: DataTypes.STRING(20),
     field: 'order_id'
