@@ -7,15 +7,18 @@ const passport = require("./auth/passport");
 const productsRoutes = require("./routes/productRoutes");
 //  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const promotionProgramRoutes = require("./routes/promotionProgramRoutes");
+
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Session setup (cho Google OAuth nếu dùng)
 app.use(
@@ -52,6 +55,8 @@ app.use("/api/accounts", authRoutes);
 
 //Route cho orders
 app.use("/api/orders", orderRoutes);
+//Route cho payment
+app.use("/api/payment", paymentRoutes);
 // Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

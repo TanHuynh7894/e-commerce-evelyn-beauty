@@ -58,9 +58,26 @@ const requireRole = (...roles) => {
   };
 };
 
+const validatePassword = (req, res, next) => {
+  const { password } = req.body;
+
+  const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[\W_])[^\s]{8,}$/;
+
+  if (!password || !passwordRegex.test(password)) {
+    return res.status(400).json({
+      message:
+        "Mật khẩu phải có ít nhất 8 ký tự, chứa ít nhất 1 chữ in hoa, 1 số và 1 ký tự đặc biệt.",
+    });
+  }
+
+  next();
+};
+
+
 //  Export đúng cách
 module.exports = {
   verifyToken,
   requireRole,
-  logDbAccess
+  logDbAccess,
+  validatePassword
 };
