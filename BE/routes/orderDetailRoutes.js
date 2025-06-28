@@ -11,7 +11,7 @@ router.post('/get-all', verifyToken, requireRole('CU'), logOrderDetailRequest, o
 // Lấy orderDetail theo id (bằng body)
 router.post('/get-by-id', verifyToken, requireRole('CU'), logOrderDetailRequest, orderDetailController.getOrderDetailById);
 // Cập nhật orderDetail (bằng body)
-router.post('/update', verifyToken, requireRole('CU'), logOrderDetailRequest, validateOrderDetail, orderDetailController.updateOrderDetail);
+router.post('/update', verifyToken, requireRole('CU'), logOrderDetailRequest, orderDetailController.updateOrderDetail);
 // Xóa orderDetail (bằng body)
 router.post('/delete', verifyToken, requireRole('CU'), logOrderDetailRequest, orderDetailController.deleteOrderDetail);
 

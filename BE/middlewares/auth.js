@@ -59,7 +59,7 @@ const requireRole = (...roles) => {
 };
 
 const validatePassword = (req, res, next) => {
-  const { password } = req.body;
+  const password = req.body.password || req.body.newPassword;
 
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[\W_])[^\s]{8,}$/;
 

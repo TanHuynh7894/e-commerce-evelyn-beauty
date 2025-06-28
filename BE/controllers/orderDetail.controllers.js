@@ -46,8 +46,14 @@ const getOrderDetailById = async (req, res) => {
 const updateOrderDetail = async (req, res) => {
   try {
     const { id, comment, rate, imageEvaluate } = req.body;
+    // Chỉ cập nhật các trường có giá trị
+    const updateData = {};
+    if (comment !== undefined) updateData.comment = comment;
+    if (rate !== undefined) updateData.rate = rate;
+    if (imageEvaluate !== undefined) updateData.imageEvaluate = imageEvaluate;
+
     const [updated] = await OrderDetail.update(
-      { comment, rate, imageEvaluate },
+      updateData,
       { where: { orderDetailId: id } }
     );
     if (!updated) return res.status(404).json({ message: 'Không tìm thấy chi tiết đơn hàng' });
