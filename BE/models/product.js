@@ -37,7 +37,10 @@ Product.associate = (models) => {
     otherKey: "categoryId",
     as: "categories",
   });
-  Product.hasMany(models.Cart, { foreignKey: "productId", as: "cartItems" });
+  Product.hasMany(models.CartItem, {
+    foreignKey: "productId",
+    as: "cartItems",
+  });
   Product.hasMany(models.OrderDetail, {
     foreignKey: "productId",
     as: "orderDetails",

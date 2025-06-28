@@ -95,7 +95,7 @@ const registerAccount = async (req, res) => {
 };
 
 const googleLogin = async (req, res) => {
-  const { credential, action } = req.body;
+  const { credential } = req.body;
 
   try {
     const ticket = await client.verifyIdToken({
@@ -104,53 +104,37 @@ const googleLogin = async (req, res) => {
     });
 
     const payload = ticket.getPayload();
-    const { email, name } = payload;
+    const { email, name, sub: googleId } = payload;
+
     let account = await Account.findOne({ where: { email } });
 
-    if (action === "login") {
-      if (!account)
-        return res.status(404).json({ message: "Tài khoản chưa đăng ký" });
+    if (!account) {
+      const newAccountId = "AC" + Date.now();
+      const fakePassword = await bcrypt.hash("GOOGLE_AUTH", 10);
 
-      const token = generateToken(account);
-      const { password: _, ...accountSafe } = account.get({ plain: true });
-
-      return res.status(200).json({
-        message: "Đăng nhập thành công",
-        account: accountSafe,
-        token,
-      });
-    }
-
-    if (action === "register") {
-      if (account)
-        return res.status(409).json({ message: "Tài khoản đã tồn tại" });
-
-      const newAccountID = "AC" + Date.now();
-      const defaultPassword = await bcrypt.hash("google-auth", 10); // mật khẩu giả lập
-
-      const newAccount = await Account.create({
-        accountId: newAccountID,
+      account = await Account.create({
+        accountId: newAccountId,
         name,
         email,
-        password: defaultPassword,
+        password: fakePassword,
         role: "CU",
         status: "ON",
       });
 
-      const token = generateToken(newAccount);
-      const { password: _, ...accountSafe } = newAccount.get({ plain: true });
-
-      return res.status(201).json({
-        message: "Đăng ký thành công bằng Google",
-        account: accountSafe,
-        token,
-      });
+      console.log(` Đã tạo tài khoản Google mới cho ${email}`);
     }
 
-    res.status(400).json({ message: "Hành động không hợp lệ" });
+    const token = generateToken(account);
+    const { password: _, ...accountSafe } = account.get({ plain: true });
+
+    return res.status(200).json({
+      message: "Đăng nhập Google thành công",
+      account: accountSafe,
+      token,
+    });
   } catch (err) {
     console.error("Lỗi xác thực Google:", err);
-    res.status(401).json({ message: "Token Google không hợp lệ" });
+    return res.status(401).json({ message: "Token Google không hợp lệ" });
   }
 };
 
@@ -263,32 +247,36 @@ const createAccountWithOtp = async (req, res) => {
   const { name, email, password, role, otp } = req.body;
 
   if (!["OS", "SF"].includes(role)) {
-    return res.status(400).json({ message: "Chỉ tạo được tài khoản OS hoặc SF" });
+    return res
+      .status(400)
+      .json({ message: "Chỉ tạo được tài khoản OS hoặc SF" });
   }
 
   global.tempAdminOtps = global.tempAdminOtps || {};
 
   if (!otp) {
     const existing = await Account.findOne({ where: { email } });
-    if (existing)
-      return res.status(409).json({ message: "Email đã tồn tại" });
+    if (existing) return res.status(409).json({ message: "Email đã tồn tại" });
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     try {
-      await sendOtpEmail(email, `Mã xác nhận tạo tài khoản của bạn là: ${otpCode}`);
+      await sendOtpEmail(
+        email,
+        `Mã xác nhận tạo tài khoản của bạn là: ${otpCode}`
+      );
 
       global.tempAdminOtps[email] = {
         code: otpCode,
         expiredAt: Date.now() + 5 * 60 * 1000,
         name,
         password,
-        role
+        role,
       };
 
       return res.status(200).json({
         message: "Mã OTP đã được gửi tới email. Gửi lại OTP để xác minh.",
-        email
+        email,
       });
     } catch (err) {
       console.error("Lỗi gửi OTP:", err);
@@ -299,7 +287,9 @@ const createAccountWithOtp = async (req, res) => {
   const record = global.tempAdminOtps[email];
 
   if (!record)
-    return res.status(400).json({ message: "Không có yêu cầu tạo tài khoản đang chờ OTP" });
+    return res
+      .status(400)
+      .json({ message: "Không có yêu cầu tạo tài khoản đang chờ OTP" });
   if (Date.now() > record.expiredAt)
     return res.status(410).json({ message: "Mã OTP đã hết hạn" });
   if (record.code !== otp)
@@ -313,12 +303,14 @@ const createAccountWithOtp = async (req, res) => {
       email,
       password: hashed,
       role: record.role,
-      status: "ON"
+      status: "ON",
     });
 
     delete global.tempAdminOtps[email];
 
-    return res.status(201).json({ message: "Tạo tài khoản thành công", account: newAccount });
+    return res
+      .status(201)
+      .json({ message: "Tạo tài khoản thành công", account: newAccount });
   } catch (err) {
     console.error("Lỗi tạo tài khoản:", err);
     return res.status(500).json({ message: "Lỗi khi tạo tài khoản" });

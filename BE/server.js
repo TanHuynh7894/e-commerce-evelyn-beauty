@@ -7,7 +7,11 @@ const productsRoutes = require("./routes/productRoutes");
 //  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
 const profileRoutes = require("./routes/profileRoutes");
-
+const cartRoutes = require("./routes/cartRoutes");
+const cartItemRoutes = require("./routes/cartItemRoutes");
+const supportRoutes = require("./routes/supportRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
+const categoryForProductRoutes = require("./routes/categoryForProductRoutes");
 dotenv.config();
 
 const app = express();
@@ -43,6 +47,21 @@ app.use("/api/profiles", profileRoutes);
 
 //Route cho accounts
 app.use("/api/accounts", authRoutes);
+//Route cho cart
+app.use("/api/carts", cartRoutes);
+
+//Route cho CartItem
+app.use("/api/cart-items", cartItemRoutes);
+
+//Route cho Support
+app.use("/api/supports", supportRoutes);
+
+//Route cho categories
+app.use("/api/categories", categoryRoutes);
+
+//Route cho categoryForProduct
+app.use("/api/category-for-product", categoryForProductRoutes);
+
 // Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
