@@ -7,6 +7,7 @@ const productsRoutes = require("./routes/productRoutes");
 //  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
 const profileRoutes = require("./routes/profileRoutes");
+const classificationForProductRoutes = require("./routes/classificationForProductRoutes");
 
 dotenv.config();
 
@@ -43,7 +44,11 @@ app.use("/api/profiles", profileRoutes);
 
 //Route cho accounts
 app.use("/api/accounts", authRoutes);
-// Khởi động server
+
+// Route cho classification-for-product
+app.use("/api/classification-for-product", classificationForProductRoutes);
+
+//Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(` Backend đang chạy tại http://localhost:${PORT}`);
