@@ -12,6 +12,7 @@ const cartItemRoutes = require("./routes/cartItemRoutes");
 const supportRoutes = require("./routes/supportRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const categoryForProductRoutes = require("./routes/categoryForProductRoutes");
+const promotionProgramsRoutes = require("./routes/promotionProgramsRoutes");
 dotenv.config();
 
 const app = express();
@@ -61,6 +62,9 @@ app.use("/api/categories", categoryRoutes);
 
 //Route cho categoryForProduct
 app.use("/api/category-for-product", categoryForProductRoutes);
+
+//Route cho promotion programs
+app.use("/api/promotion-programs", promotionProgramsRoutes);
 
 // Khởi động server
 const PORT = process.env.PORT || 3000;
