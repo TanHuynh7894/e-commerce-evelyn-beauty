@@ -7,7 +7,7 @@ const {
   ClassificationProduct,
   Classification,
 } = require("../models");
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 
 // Lấy tất cả sản phẩm
 exports.getAllProducts = async (req, res) => {
@@ -25,6 +25,14 @@ exports.getAllProducts = async (req, res) => {
         "image_3",
         "image_4",
         "image_5",
+        [
+          Sequelize.literal(`(
+          SELECT COALESCE(SUM(quantity), 0)
+          FROM classification_for_product
+          WHERE classification_for_product.product_id = Product.product_id
+        )`),
+          "quantity",
+        ],
       ],
     });
     const data = products.map((p) => {
@@ -67,6 +75,27 @@ exports.getProductsByCategory = async (req, res) => {
     }
 
     const { count, rows: products } = await Product.findAndCountAll({
+      attributes: [
+        "productId",
+        "name",
+        "origin",
+        "brand",
+        "price",
+        "description",
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4",
+        "image_5",
+        [
+          Sequelize.literal(`(
+          SELECT COALESCE(SUM(quantity), 0)
+          FROM classification_for_product
+          WHERE classification_for_product.product_id = Product.product_id
+        )`),
+          "quantity",
+        ],
+      ],
       include: [
         {
           model: Category,
@@ -109,18 +138,53 @@ exports.getProductsByBrand = async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    // Lấy sản phẩm với phân trang và lọc theo brand
     const { count, rows: products } = await Product.findAndCountAll({
       where: { brand },
+      attributes: [
+        "productId",
+        "name",
+        "origin",
+        "brand",
+        "price",
+        "description",
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4",
+        "image_5",
+        [
+          Sequelize.literal(`(
+          SELECT COALESCE(SUM(quantity), 0)
+          FROM classification_for_product
+          WHERE classification_for_product.product_id = Product.product_id
+        )`),
+          "quantity",
+        ],
+      ],
       limit,
       offset,
-      order: [["productId", "DESC"]],
+      order: [["price", "DESC"]],
     });
-
+    const data = products.map((p) => {
+      const prod = p.get({ plain: true });
+      prod.images = [
+        prod.image_1,
+        prod.image_2,
+        prod.image_3,
+        prod.image_4,
+        prod.image_5,
+      ].filter(Boolean);
+      delete prod.image_1;
+      delete prod.image_2;
+      delete prod.image_3;
+      delete prod.image_4;
+      delete prod.image_5;
+      return prod;
+    });
     res.json({
-      message: "Lấy sản phẩm theo thương hiệu thành công",
+      message: "Lấy sản phẩm theo brand thành công",
       data: {
-        products,
+        products: data,
         pagination: {
           total: count,
           page,
@@ -146,35 +210,64 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    // Kiểm tra category có tồn tại không
-    const categoryExists = await Category.findByPk(category);
-    if (!categoryExists) {
-      return res.status(404).json({
-        message: "Không tìm thấy danh mục sản phẩm",
-        category,
-      });
+    const category = await Category.findByPk(categoryId);
+    if (!category) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy danh mục", categoryId });
     }
-
-    // Lấy sản phẩm với phân trang và lọc theo cả category và brand
+    const productIds = await CategoryProduct.findAll({
+      where: { categoryId },
+      attributes: ["productId"],
+    });
+    const ids = productIds.map((item) => item.productId);
     const { count, rows: products } = await Product.findAndCountAll({
-      include: [
-        {
-          model: Category,
-          as: "categories",
-          where: { categoryId: category },
-          attributes: ["categoryId", "name"],
-        },
+      where: { productId: ids, brand },
+      attributes: [
+        "productId",
+        "name",
+        "origin",
+        "brand",
+        "price",
+        "description",
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4",
+        "image_5",
+        [
+          Sequelize.literal(`(
+          SELECT COALESCE(SUM(quantity), 0)
+          FROM classification_for_product
+          WHERE classification_for_product.product_id = Product.product_id
+        )`),
+          "quantity",
+        ],
       ],
-      where: brand ? { brand } : {},
       limit,
       offset,
-      order: [["productId", "DESC"]],
+      order: [["price", "DESC"]],
     });
-
+    const data = products.map((p) => {
+      const prod = p.get({ plain: true });
+      prod.images = [
+        prod.image_1,
+        prod.image_2,
+        prod.image_3,
+        prod.image_4,
+        prod.image_5,
+      ].filter(Boolean);
+      delete prod.image_1;
+      delete prod.image_2;
+      delete prod.image_3;
+      delete prod.image_4;
+      delete prod.image_5;
+      return prod;
+    });
     res.json({
-      message: "Lấy sản phẩm theo danh mục và thương hiệu thành công",
+      message: "Lấy sản phẩm theo danh mục và brand thành công",
       data: {
-        products,
+        products: data,
         pagination: {
           total: count,
           page,
@@ -184,9 +277,9 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Lỗi khi lấy sản phẩm theo category và brand:", error);
+    console.error("Lỗi khi lấy sản phẩm theo danh mục và brand:", error);
     res.status(500).json({
-      message: "Lỗi server khi lấy sản phẩm theo danh mục và thương hiệu",
+      message: "Lỗi server khi lấy sản phẩm theo danh mục và brand",
       error: error.message,
     });
   }
@@ -195,20 +288,62 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
 //dynamic search
 exports.searchProducts = async (req, res) => {
   try {
-    const keyword = req.query.keyword;
+    const { keyword } = req.query;
     const products = await Product.findAll({
       where: {
         name: {
           [Op.like]: `%${keyword}%`,
         },
       },
+      attributes: [
+        "productId",
+        "name",
+        "origin",
+        "brand",
+        "price",
+        "description",
+        "image_1",
+        "image_2",
+        "image_3",
+        "image_4",
+        "image_5",
+        [
+          Sequelize.literal(`(
+          SELECT COALESCE(SUM(quantity), 0)
+          FROM classification_for_product
+          WHERE classification_for_product.product_id = Product.product_id
+        )`),
+          "quantity",
+        ],
+      ],
       limit: 20,
     });
-    res.json(products);
+    const data = products.map((p) => {
+      const prod = p.get({ plain: true });
+      prod.images = [
+        prod.image_1,
+        prod.image_2,
+        prod.image_3,
+        prod.image_4,
+        prod.image_5,
+      ].filter(Boolean);
+      delete prod.image_1;
+      delete prod.image_2;
+      delete prod.image_3;
+      delete prod.image_4;
+      delete prod.image_5;
+      return prod;
+    });
+    res.json({
+      message: "Tìm kiếm sản phẩm thành công",
+      query: req.query,
+      data,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Lỗi server khi tìm kiếm sản phẩm", error });
+    res.status(500).json({
+      message: "Lỗi server khi tìm kiếm sản phẩm",
+      error: error.message,
+    });
   }
 };
 
@@ -222,13 +357,34 @@ exports.searchProducts = async (req, res) => {
 
 exports.getRecommendProducts = async (req, res) => {
   try {
+    // Lấy tất cả orderDetail có rate và order status = done
     const products = await OrderDetail.findAll({
       attributes: ["productId", "quantity", "rate"],
       include: [
         {
           model: Product,
           as: "product",
-          attributes: ["image", "name"],
+          attributes: [
+            "productId",
+            "name",
+            "origin",
+            "brand",
+            "price",
+            "description",
+            "image_1",
+            "image_2",
+            "image_3",
+            "image_4",
+            "image_5",
+            [
+              Sequelize.literal(`(
+              SELECT COALESCE(SUM(quantity), 0)
+              FROM classification_for_product
+              WHERE classification_for_product.product_id = product.product_id
+            )`),
+              "quantity",
+            ],
+          ],
         },
         {
           model: Order,
@@ -239,48 +395,62 @@ exports.getRecommendProducts = async (req, res) => {
     });
 
     const productMap = {};
-
     for (const item of products) {
       const { productId, quantity, rate } = item;
       const status = item.order?.status;
-      const name = item.product?.name || "Unknown";
-      const image = item.product?.image || null;
-
+      const prod = item.product;
+      if (!prod) continue;
       // Lọc: chỉ lấy đơn hoàn thành và có đánh giá
       if (status !== "done" || rate == null) continue;
-
       if (!productMap[productId]) {
         productMap[productId] = {
-          name,
-          image,
-          quantity: quantity || 0,
+          ...prod.get({ plain: true }),
+          quantitySold: quantity || 0,
           totalRate: rate,
           countRate: 1,
         };
       } else {
-        productMap[productId].quantity += quantity || 0;
+        productMap[productId].quantitySold += quantity || 0;
         productMap[productId].totalRate += rate;
         productMap[productId].countRate += 1;
       }
     }
 
-    const result = Object.entries(productMap)
-      .map(([productId, data]) => {
+    const result = Object.values(productMap)
+      .map((prod) => {
         const averageRate = parseFloat(
-          (data.totalRate / data.countRate).toFixed(2)
+          (prod.totalRate / prod.countRate).toFixed(2)
         );
+        // Xử lý images array
+        prod.images = [
+          prod.image_1,
+          prod.image_2,
+          prod.image_3,
+          prod.image_4,
+          prod.image_5,
+        ].filter(Boolean);
+        delete prod.image_1;
+        delete prod.image_2;
+        delete prod.image_3;
+        delete prod.image_4;
+        delete prod.image_5;
         return {
-          productId,
-          name: data.name,
-          image: data.image,
-          quantitySold: data.quantity,
+          productId: prod.productId,
+          name: prod.name,
+          origin: prod.origin,
+          brand: prod.brand,
+          price: prod.price,
+          description: prod.description,
+          images: prod.images,
+          quantity: prod.quantity, // tổng tồn kho
+          quantitySold: prod.quantitySold, // tổng đã bán
           averageRate,
-          countRate: data.countRate,
+          countRate: prod.countRate,
         };
       })
-      .filter((p) => p.averageRate > 4.5)
-      .sort((a, b) => b.averageRate - a.averageRate) // hoặc sort theo quantitySold nếu muốn
-      .slice(0, 10); // Top 10 sản phẩm
+      .filter((p) => p.averageRate >= 4.5)
+      .sort((a, b) => b.averageRate - a.averageRate)
+      .slice(0, 10);
 
     return res.status(200).json({
       message: "Lấy sản phẩm đề xuất thành công",
@@ -314,24 +484,29 @@ exports.importNewProduct = async (req, res) => {
       const {
         name,
         origin,
-        quantity,
         brand,
         price,
         description,
-        image,
-        categoryIds = [],
+        image_1,
+        image_2,
+        image_3,
+        image_4,
+        image_5,
+        categories = [], // mảng categoryId
+        classifications = [], // mảng { classificationId, quantity }
       } = item;
+      const accountId = req.user.accountId; // lấy từ user đăng nhập
 
       if (!name || !price || !brand) {
         skipped.push({ name, reason: "Thiếu thông tin bắt buộc" });
         continue;
       }
 
-      const newProductId = "PD" + Date.now();
+      const newProductId = "PD" + Date.now() + Math.floor(Math.random() * 1000);
 
       // Kiểm tra sản phẩm đã tồn tại (KHÔNG kiểm tra image)
       const existing = await Product.findOne({
-        where: { name, origin, quantity, brand, price, description },
+        where: { name, origin, brand, price, description },
       });
 
       if (existing) {
@@ -339,20 +514,41 @@ exports.importNewProduct = async (req, res) => {
         continue;
       }
 
+      // Tạo sản phẩm mới (KHÔNG có quantity)
       const newProduct = await Product.create({
         productId: newProductId,
         name,
         origin,
-        quantity,
         brand,
         price,
         description,
-        image,
+        image_1,
+        image_2,
+        image_3,
+        image_4,
+        image_5,
+        accountId, // truyền accountId lấy từ user đăng nhập
       });
 
-      // Gán danh mục nếu có
-      if (Array.isArray(categoryIds) && categoryIds.length > 0) {
-        await newProduct.setCategories(categoryIds); // Sequelize tự map thông qua bảng CategoryProduct
+      // Gán category cho sản phẩm (nếu có)
+      if (Array.isArray(categories) && categories.length > 0) {
+        for (const categoryId of categories) {
+          await CategoryProduct.create({
+            categoryId,
+            productId: newProductId,
+          });
+        }
+      }
+
+      // Gán classification và quantity cho từng classification (nếu có)
+      if (Array.isArray(classifications) && classifications.length > 0) {
+        for (const cl of classifications) {
+          await ClassificationProduct.create({
+            productId: newProductId,
+            classificationId: cl.classificationId,
+            quantity: cl.quantity || 0,
+          });
+        }
       }
 
       created.push(newProduct);
@@ -424,16 +620,21 @@ exports.updateProduct = async (req, res) => {
     await product.update({ status: "OFF" });
 
     const newProductId = "PD" + Date.now();
+    const accountId = req.user.accountId; // lấy từ user đăng nhập
 
     const newProduct = await Product.create({
       productId: newProductId,
       name: updates.name || product.name,
       origin: updates.origin || product.origin,
-      quantity: updates.quantity || product.quantity,
       brand: updates.brand || product.brand,
       price: updates.price || product.price,
       description: updates.description || product.description,
-      image: updates.image || product.image,
+      image_1: updates.image_1 || product.image_1,
+      image_2: updates.image_2 || product.image_2,
+      image_3: updates.image_3 || product.image_3,
+      image_4: updates.image_4 || product.image_4,
+      image_5: updates.image_5 || product.image_5,
+      accountId, // truyền accountId lấy từ user đăng nhập
       status: "ON",
     });
 

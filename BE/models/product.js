@@ -11,7 +11,6 @@ const Product = sequelize.define(
     },
     name: DataTypes.STRING(5000),
     origin: DataTypes.STRING(20),
-    quantity: DataTypes.INTEGER,
     brand: DataTypes.STRING(20),
     price: DataTypes.DECIMAL(15, 0),
     description: DataTypes.STRING(255),
@@ -20,6 +19,10 @@ const Product = sequelize.define(
     image_3: DataTypes.STRING(2083),
     image_4: DataTypes.STRING(2083),
     image_5: DataTypes.STRING(2083),
+    accountId: {
+      type: DataTypes.STRING(20),
+      field: "account_id",
+    },
   },
   {
     tableName: "products",

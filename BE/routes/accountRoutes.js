@@ -1,10 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const accountController = require("../controllers/accounts.controllers");
-const { verifyToken, requireRole,validatePassword } = require("../middlewares/auth");
+const {
+  verifyToken,
+  requireRole,
+  validatePassword,
+} = require("../middlewares/auth");
 const passport = require("../auth/passport");
 const {
-  createAccount,
+  createAccountWithOtp,
   getAllAccounts,
   updateAccount,
   deleteAccount,
@@ -15,12 +19,16 @@ router.post("/verify-otp", accountController.verifyOtp);
 
 // Auth routes
 router.post("/login", accountController.loginAccount);
-router.post("/register", validatePassword,accountController.registerAccount);
+router.post("/register", validatePassword, accountController.registerAccount);
 router.post("/google", accountController.googleLogin);
 
 // Quên mật khẩu (JWT không lưu DB)
 router.post("/forgot-password", accountController.forgotPassword);
-router.post("/reset-password",validatePassword, accountController.resetPassword);
+router.post(
+  "/reset-password",
+  validatePassword,
+  accountController.resetPassword
+);
 
 //Logout route
 router.post("/logout", accountController.logout);
@@ -77,9 +85,20 @@ router.get(
   }
 );
 
-router.post("/create", verifyToken, requireRole("OS"), createAccount);
+router.post(
+  "/create",
+  verifyToken,
+  validatePassword,
+  requireRole("OS"),
+  createAccountWithOtp
+);
 router.get("/all", verifyToken, requireRole("OS"), getAllAccounts);
 router.put("/update/:accountId", verifyToken, requireRole("OS"), updateAccount);
-router.delete("/delete/:accountId",verifyToken,requireRole("OS"),deleteAccount);
+router.delete(
+  "/delete/:accountId",
+  verifyToken,
+  requireRole("OS"),
+  deleteAccount
+);
 
 module.exports = router;

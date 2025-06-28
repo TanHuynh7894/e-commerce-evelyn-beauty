@@ -69,12 +69,10 @@ const registerAccount = async (req, res) => {
       console.log(` Gửi OTP ${otpCode} đến ${email}`);
     } catch (mailErr) {
       console.error(" Lỗi gửi OTP qua email:", mailErr);
-      return res
-        .status(500)
-        .json({
-          message:
-            "Không gửi được email OTP. Kiểm tra MAIL_USER/PASS hoặc app password",
-        });
+      return res.status(500).json({
+        message:
+          "Không gửi được email OTP. Kiểm tra MAIL_USER/PASS hoặc app password",
+      });
     }
 
     global.tempOtps = global.tempOtps || {};
@@ -85,13 +83,11 @@ const registerAccount = async (req, res) => {
       password,
     };
 
-    res
-      .status(200)
-      .json({
-        message:
-          "Mã OTP đã gửi tới email. Vui lòng xác minh để hoàn tất đăng ký.",
-        email,
-      });
+    res.status(200).json({
+      message:
+        "Mã OTP đã gửi tới email. Vui lòng xác minh để hoàn tất đăng ký.",
+      email,
+    });
   } catch (err) {
     console.error("Lỗi gửi OTP:", err);
     res.status(500).json({ message: "Gửi OTP thất bại" });
@@ -109,7 +105,7 @@ const googleLogin = async (req, res) => {
 
     const payload = ticket.getPayload();
     const { email, name } = payload;
-let account = await Account.findOne({ where: { email } });
+    let account = await Account.findOne({ where: { email } });
 
     if (action === "login") {
       if (!account)
@@ -176,7 +172,7 @@ const verifyOtp = async (req, res) => {
     email,
     password: await bcrypt.hash(record.password, 10),
     role: "CU",
-    status: "ON"
+    status: "ON",
   });
 
   delete global.tempOtps[email];
@@ -210,7 +206,7 @@ const forgotPassword = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Lưu tạm OTP và thời hạn
-global.resetOtps = global.resetOtps || {};
+    global.resetOtps = global.resetOtps || {};
     global.resetOtps[email] = {
       otp,
       accountId: account.accountId,
@@ -220,18 +216,16 @@ global.resetOtps = global.resetOtps || {};
     // Gửi email
     await sendOtpEmail(email, ` Mã đặt lại mật khẩu của bạn là: ${otp}`);
 
-    res
-      .status(200)
-      .json({
-        message: " Mã OTP đặt lại mật khẩu đã được gửi tới email nếu tồn tại.",
-      });
+    res.status(200).json({
+      message: " Mã OTP đặt lại mật khẩu đã được gửi tới email nếu tồn tại.",
+    });
   } catch (err) {
     console.error("Lỗi gửi OTP reset:", err);
     res.status(500).json({ message: " Không gửi được OTP" });
   }
 };
 
-const  resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
   const { email, otp, newPassword } = req.body;
 
   const record = global.resetOtps?.[email];
@@ -265,33 +259,69 @@ const  resetPassword = async (req, res) => {
 };
 
 // Chỉ dành cho OS , tạo đc role OS hoặc SF
-const createAccount = async (req, res) => {
-  const { name, email, password, role } = req.body;
+const createAccountWithOtp = async (req, res) => {
+  const { name, email, password, role, otp } = req.body;
 
-  if (!["OS"].includes(role)) {
-    return res.status(400).json({ message: "Chỉ tạo được OS hoặc SF" });
+  if (!["OS", "SF"].includes(role)) {
+    return res.status(400).json({ message: "Chỉ tạo được tài khoản OS hoặc SF" });
   }
 
-  try {
-    const existing = await Account.findOne({ where: { email } });
-    if (existing) return res.status(409).json({ message: "Email đã tồn tại" });
+  global.tempAdminOtps = global.tempAdminOtps || {};
 
-    const hashed = await bcrypt.hash(password, 10);
+  if (!otp) {
+    const existing = await Account.findOne({ where: { email } });
+    if (existing)
+      return res.status(409).json({ message: "Email đã tồn tại" });
+
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    try {
+      await sendOtpEmail(email, `Mã xác nhận tạo tài khoản của bạn là: ${otpCode}`);
+
+      global.tempAdminOtps[email] = {
+        code: otpCode,
+        expiredAt: Date.now() + 5 * 60 * 1000,
+        name,
+        password,
+        role
+      };
+
+      return res.status(200).json({
+        message: "Mã OTP đã được gửi tới email. Gửi lại OTP để xác minh.",
+        email
+      });
+    } catch (err) {
+      console.error("Lỗi gửi OTP:", err);
+      return res.status(500).json({ message: "Không thể gửi mã OTP" });
+    }
+  }
+
+  const record = global.tempAdminOtps[email];
+
+  if (!record)
+    return res.status(400).json({ message: "Không có yêu cầu tạo tài khoản đang chờ OTP" });
+  if (Date.now() > record.expiredAt)
+    return res.status(410).json({ message: "Mã OTP đã hết hạn" });
+  if (record.code !== otp)
+    return res.status(401).json({ message: "Mã OTP không chính xác" });
+
+  try {
+    const hashed = await bcrypt.hash(record.password, 10);
     const newAccount = await Account.create({
       accountId: "AC" + Date.now(),
-      name,
+      name: record.name,
       email,
       password: hashed,
-      role,
-      status: "ON",
+      role: record.role,
+      status: "ON"
     });
 
-    res
-      .status(201)
-      .json({ message: "Tạo account thành công", account: newAccount });
+    delete global.tempAdminOtps[email];
+
+    return res.status(201).json({ message: "Tạo tài khoản thành công", account: newAccount });
   } catch (err) {
-    console.error("Lỗi tạo account:", err);
-    res.status(500).json({ message: "Lỗi server" });
+    console.error("Lỗi tạo tài khoản:", err);
+    return res.status(500).json({ message: "Lỗi khi tạo tài khoản" });
   }
 };
 
@@ -312,7 +342,7 @@ const getAllAccounts = async (req, res) => {
 };
 
 const updateAccount = async (req, res) => {
-const { accountId } = req.params;
+  const { accountId } = req.params;
   const { name, password } = req.body;
 
   try {
@@ -339,6 +369,7 @@ const { accountId } = req.params;
 
 const deleteAccount = async (req, res) => {
   const { accountId } = req.params;
+  const currentUserId = req.user.accountId; // Tài khoản đang đăng nhập
 
   try {
     const account = await Account.findByPk(accountId);
@@ -347,20 +378,30 @@ const deleteAccount = async (req, res) => {
 
     // Không cho xóa CU
     if (account.role === "CU") {
-      return res
-        .status(403)
-        .json({ message: "Không được phép xóa tài khoản Customer (CU)" });
+      return res.status(403).json({
+        message: "Không được phép xóa tài khoản Customer (CU)",
+      });
     }
 
+    // Không cho tự xóa chính mình
+    if (account.accountId === currentUserId) {
+      return res.status(403).json({
+        message: "Không thể xóa chính tài khoản của bạn đang sử dụng",
+      });
+    }
+
+    // Thử xóa vĩnh viễn
     try {
       await account.destroy();
       res.json({ message: "Xóa vĩnh viễn account thành công" });
     } catch {
+      // Nếu có ràng buộc khóa ngoại → chỉ set OFF
       account.status = "OFF";
       await account.save();
       res.json({ message: "Chuyển trạng thái account sang OFF" });
     }
   } catch (err) {
+    console.error("Lỗi khi xóa account:", err);
     res.status(500).json({ message: "Lỗi xóa" });
   }
 };
@@ -373,7 +414,7 @@ module.exports = {
   logout,
   forgotPassword,
   resetPassword,
-  createAccount,
+  createAccountWithOtp,
   getAllAccounts,
   updateAccount,
   deleteAccount,
