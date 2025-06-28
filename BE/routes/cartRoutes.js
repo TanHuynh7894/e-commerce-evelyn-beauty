@@ -13,6 +13,4 @@ router.post('/getByAccount', verifyToken, cartController.getCartByAccountId);
 // Xóa cart
 router.delete('/delete', verifyToken, cartController.deleteCart);
 
-
-
 module.exports = router; 
