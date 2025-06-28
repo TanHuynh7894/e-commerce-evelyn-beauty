@@ -15,7 +15,11 @@ const Product = sequelize.define(
     brand: DataTypes.STRING(20),
     price: DataTypes.DECIMAL(15, 0),
     description: DataTypes.STRING(255),
-    image: DataTypes.STRING(2083),
+    image_1: DataTypes.STRING(2083),
+    image_2: DataTypes.STRING(2083),
+    image_3: DataTypes.STRING(2083),
+    image_4: DataTypes.STRING(2083),
+    image_5: DataTypes.STRING(2083),
   },
   {
     tableName: "products",
