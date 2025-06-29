@@ -9,7 +9,7 @@ const {
 const { verifyToken, requireRole } = require("../middlewares/auth");
 
 //Lấy tất cả sản phẩm
-router.get("/", logProductRequest, productsController.getAllProducts);
+router.get("/", logProductRequest, paginate, productsController.getAllProducts);
 
 // Lấy sản phẩm theo categoryId
 router.get("/category", paginate, productsController.getProductsByCategory);

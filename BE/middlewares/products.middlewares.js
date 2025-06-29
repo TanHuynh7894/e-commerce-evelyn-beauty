@@ -13,7 +13,7 @@ const validateSearchKeyword = (req, res, next) => {
 const paginate = (req, res, next) => {
   req.pagination = {
     page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10,
+    limit: parseInt(req.query.limit) || 20,
     offset: 0,
   };
   req.pagination.offset = (req.pagination.page - 1) * req.pagination.limit;
