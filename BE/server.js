@@ -13,6 +13,8 @@ const supportRoutes = require("./routes/supportRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const categoryForProductRoutes = require("./routes/categoryForProductRoutes");
 const promotionProgramsRoutes = require("./routes/promotionProgramsRoutes");
+const classificationRoutes = require("./routes/classificationRoutes");
+const classificationForProductRoutes = require("./routes/classificationForProductRoutes");
 dotenv.config();
 
 const app = express();
@@ -65,6 +67,12 @@ app.use("/api/category-for-product", categoryForProductRoutes);
 
 //Route cho promotion programs
 app.use("/api/promotion-programs", promotionProgramsRoutes);
+
+//Route cho classifications
+app.use("/api/classifications", classificationRoutes);
+
+//Route cho classificationForProduct
+app.use("/api/classification-for-product", classificationForProductRoutes);
 
 // Khởi động server
 const PORT = process.env.PORT || 3000;

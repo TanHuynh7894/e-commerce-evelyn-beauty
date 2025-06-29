@@ -36,7 +36,7 @@ router.post(
 router.get(
   "/os/on",
   verifyToken,
-  requireRole("OS", "SF"),
+  requireRole("OS", "SF", "CU"),
   logPromotionProgramRequest,
   validatePagination,
   paginate,
