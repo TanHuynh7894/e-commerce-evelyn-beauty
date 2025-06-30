@@ -109,10 +109,28 @@ exports.getProductsByCategory = async (req, res) => {
       order: [["price", "DESC"]],
     });
 
+    // Biến images thành mảng như getAllProducts
+    const data = products.map((p) => {
+      const prod = p.get({ plain: true });
+      prod.images = [
+        prod.image_1,
+        prod.image_2,
+        prod.image_3,
+        prod.image_4,
+        prod.image_5,
+      ].filter(Boolean);
+      delete prod.image_1;
+      delete prod.image_2;
+      delete prod.image_3;
+      delete prod.image_4;
+      delete prod.image_5;
+      return prod;
+    });
+
     res.json({
       message: "Lấy sản phẩm theo danh mục thành công",
       data: {
-        products,
+        products: data,
         pagination: {
           total: count,
           page,
@@ -210,8 +228,9 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
   const offset = (page - 1) * limit;
 
   try {
-    const category = await Category.findByPk(categoryId);
-    if (!category) {
+    const categoryId = category;
+    const categoryObj = await Category.findByPk(categoryId);
+    if (!categoryObj) {
       return res
         .status(404)
         .json({ message: "Không tìm thấy danh mục", categoryId });
@@ -248,6 +267,7 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
       offset,
       order: [["price", "DESC"]],
     });
+    // Biến images thành mảng như getAllProducts
     const data = products.map((p) => {
       const prod = p.get({ plain: true });
       prod.images = [
@@ -559,7 +579,22 @@ exports.importNewProduct = async (req, res) => {
       imported: created.length,
       skipped: skipped.length,
       data: {
-        created,
+        created: created.map((prod) => {
+          const p = prod.get ? prod.get({ plain: true }) : prod;
+          p.images = [
+            p.image_1,
+            p.image_2,
+            p.image_3,
+            p.image_4,
+            p.image_5,
+          ].filter(Boolean);
+          delete p.image_1;
+          delete p.image_2;
+          delete p.image_3;
+          delete p.image_4;
+          delete p.image_5;
+          return p;
+        }),
         skipped,
       },
     });
@@ -640,7 +675,22 @@ exports.updateProduct = async (req, res) => {
 
     return res.status(200).json({
       message: "Đã tạo sản phẩm mới và update status sản phẩm cũ thành off.",
-      newProduct,
+      newProduct: (() => {
+        const p = newProduct.get ? newProduct.get({ plain: true }) : newProduct;
+        p.images = [
+          p.image_1,
+          p.image_2,
+          p.image_3,
+          p.image_4,
+          p.image_5,
+        ].filter(Boolean);
+        delete p.image_1;
+        delete p.image_2;
+        delete p.image_3;
+        delete p.image_4;
+        delete p.image_5;
+        return p;
+      })(),
     });
   } catch (error) {
     console.error("Lỗi khi cập nhật sản phẩm:", error);
@@ -705,13 +755,13 @@ exports.getProductDetail = async (req, res) => {
       attributes: ["rate"],
     });
     // Đếm số lượt đánh giá 5,4,3,2,1
-    const ratingStats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const ratingStars = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     let total = 0;
     let sum = 0;
     orderDetails.forEach((od) => {
       const r = od.rate;
-      if (r && ratingStats[r] !== undefined) {
-        ratingStats[r]++;
+      if (r && ratingStars[r] !== undefined) {
+        ratingStars[r]++;
         total++;
         sum += r;
       }
@@ -740,7 +790,7 @@ exports.getProductDetail = async (req, res) => {
         ...productData,
         categories,
         classifications,
-        ratingStats,
+        ratingStars,
         averageRating,
       },
     });
