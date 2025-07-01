@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const { Account } = require("../models");
 const jwt = require("jsonwebtoken");
 const { sendOtpEmail } = require("../utils/mails");
+const { createCartIfNotExists } = require("./cart.controllers");
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -36,6 +37,10 @@ const loginAccount = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ message: "Mật khẩu không đúng" });
     }
+
+    // Tạo cart nếu chưa có (gọi hàm từ cart.controllers)
+    await createCartIfNotExists(account.accountId);
+
     const token = generateToken(account);
     const { password: _, ...accountSafe } = account.get({ plain: true });
 
@@ -158,6 +163,9 @@ const verifyOtp = async (req, res) => {
     role: "CU",
     status: "ON",
   });
+
+  // Tạo cart rỗng cho account mới nếu chưa có (gọi hàm từ cart.controllers)
+  await createCartIfNotExists(newAccountID);
 
   delete global.tempOtps[email];
 

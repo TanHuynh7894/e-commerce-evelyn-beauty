@@ -1,24 +1,17 @@
 const { Cart } = require('../models');
 
-// Tạo cart mới
-exports.createCart = async (req, res) => {
-    try {
-      const { accountId } = req.body;
-      if (!accountId) {
-        return res.status(400).json({ message: 'Thiếu accountId' });
-      }
-      // Kiểm tra đã có cart cho accountId này chưa
-      const existingCart = await Cart.findOne({ where: { accountId } });
-      if (existingCart) {
-        return res.status(400).json({ message: 'Account này đã có cart!' });
-      }
-      const cartId = 'CA' + Date.now();
-      const cart = await Cart.create({ cartId, accountId });
-      res.status(201).json(cart);
-    } catch (error) {
-      res.status(500).json({ message: 'Lỗi tạo cart', error: error.message });
-    }
-  };
+// Hàm tiện ích: Tạo cart nếu chưa có cho accountId, trả về cart
+exports.createCartIfNotExists = async (accountId) => {
+  if (!accountId) throw new Error('Thiếu accountId');
+  let cart = await Cart.findOne({ where: { accountId } });
+  if (!cart) {
+    const cartId = 'CA' + Date.now();
+    cart = await Cart.create({ cartId, accountId });
+  }
+  return cart;
+};
+
+
 
 // Lấy cart theo accountId (body)
 exports.getCartByAccountId = async (req, res) => {
