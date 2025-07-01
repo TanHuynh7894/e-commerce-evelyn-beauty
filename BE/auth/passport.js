@@ -7,7 +7,7 @@ require('dotenv').config();
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,       // 👈 Đảm bảo biến này có giá trị
   clientSecret: process.env.GOOGLE_CLIENT_SECRET, // 👈 Cả biến này nữa
-  callbackURL: "/auth/google/callback"
+  callbackURL: process.env.GOOGLE_CALLBACK_URL
 },
 async (accessToken, refreshToken, profile, done) => {
   try {
@@ -47,5 +47,12 @@ passport.deserializeUser(async (id, done) => {
     done(err);
   }
 });
+
+Object.keys(db).forEach((modelName) => {
+  if (db[modelName].associate) {
+    db[modelName].associate(db);
+  }
+});
+
 
 module.exports = passport;

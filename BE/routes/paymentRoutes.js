@@ -1,11 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/payment.controllers');
+const { verifyToken, requireRole } = require('../middlewares/auth');
 
-// Tạo URL thanh toán VNPAY
-router.post('/vnpay/create-url', paymentController.createPaymentUrl);
-
-// Callback khi thanh toán xong
-router.get('/vnpay/callback', paymentController.verifyVnpayCallback);
+// Tạo mã QR cho đơn hàng cụ thể
+router.get('/vietqr/:orderId', verifyToken, requireRole('CU'), paymentController.generateVietQRFromOrder);
 
 module.exports = router;

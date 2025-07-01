@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database'); // ✅ Thêm dòng này
+const sequelize = require('../config/database'); 
 
 const Payment = sequelize.define('Payment', {
   paymentId: {

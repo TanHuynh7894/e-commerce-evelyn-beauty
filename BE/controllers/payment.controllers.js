@@ -1,80 +1,72 @@
-const moment = require('moment');
-const crypto = require('crypto');
-const qs = require('qs');
+const { Order, OrderDetail, Product } = require('../models');
+const axios = require('axios');
+require('dotenv').config();
 
-const createPaymentUrl = async (req, res) => {
-  const ipAddr = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+exports.generateVietQRFromOrder = async (req, res) => {
+  const { orderId } = req.params;
 
-  const tmnCode = process.env.VNP_TMNCODE;
-  const secretKey = process.env.VNP_HASHSECRET;
-  const vnpUrl = process.env.VNP_URL;
-  const returnUrl = process.env.VNP_RETURNURL;
+  try {
+    // 1. Lấy thông tin order + chi tiết + sản phẩm
+    const order = await Order.findByPk(orderId, {
+      include: [
+        {
+          model: OrderDetail,
+          as: 'details',
+          include: [
+            {
+              model: Product,
+              as: 'product',
+              attributes: [
+                'productId', 'name', 'origin',
+                'brand', 'price', 'description', ['image_1', 'image']
+              ]
 
-  const date = new Date();
-  const createDate = moment(date).format('YYYYMMDDHHmmss');
-  const orderId = 'OD' + date.getTime();
-  const amount = req.body.amount;
+            }
+          ]
+        }
+      ]
+    });
 
-  const vnp_Params = {
-    vnp_Version: '2.1.0',
-    vnp_Command: 'pay',
-    vnp_TmnCode: tmnCode,
-    vnp_Locale: req.body.language || 'vn',
-    vnp_CurrCode: 'VND',
-    vnp_TxnRef: orderId,
-    vnp_OrderInfo: req.body.orderDescription,
-    vnp_OrderType: req.body.orderType || 'other',
-    vnp_Amount: amount * 100,
-    vnp_ReturnUrl: returnUrl,
-    vnp_IpAddr: ipAddr,
-    vnp_CreateDate: createDate,
-  };
+    if (!order)
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
 
-  // Nếu có bankCode thì mới gán vào
-  if (req.body.bankCode) {
-    vnp_Params.vnp_BankCode = req.body.bankCode;
-  }
+    // 2. Tính tổng tiền
+    let totalProductCost = 0;
+    order.details.forEach(detail => {
+      totalProductCost += detail.quantity * detail.product.price;
+    });
 
-  const sortedParams = sortObject(vnp_Params);
-  const signData = qs.stringify(sortedParams, { encode: false });
-  const hmac = crypto.createHmac('sha512', secretKey);
-  const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+    const shipFee = parseFloat(order.shipFee) || 0;
+    const totalAmount = totalProductCost + shipFee;
 
-  sortedParams.vnp_SecureHash = signed;
-  const paymentUrl = `${vnpUrl}?${qs.stringify(sortedParams, { encode: false })}`;
+    // 3. Gọi API VietQR
+    const response = await axios.post('https://api.vietqr.io/v2/generate', {
+      accountNo: process.env.VIETQR_ACCOUNT_NO,
+      accountName: process.env.VIETQR_ACCOUNT_NAME,
+      acqId: process.env.VIETQR_BANK_CODE,
+      amount: totalAmount,
+      addInfo: orderId,
+      template: process.env.VIETQR_TEMPLATE || 'compact2',
+    });
 
-  console.log("Body nhận được:", req.body);
-  res.json({ paymentUrl });
-};
+    // 4. Trả về QR Base64 và thông tin thanh toán
+    return res.status(200).json({
+      message: 'Tạo mã thanh toán thành công',
+      qrBase64: response.data.data.qrDataURL,
+      orderId,
+      totalAmount,
+      shipFee,
+      items: order.details.map(d => ({
+        name: d.product.name,
+        quantity: d.quantity,
+        price: d.product.price,
+        total: d.quantity * d.product.price
+      }))
+    });
 
-// Sắp xếp object theo alphabet
-function sortObject(obj) {
-  const sorted = {};
-  const keys = Object.keys(obj).sort();
-  for (let key of keys) {
-    sorted[key] = obj[key];
-  }
-  return sorted;
-}
-
-const verifyVnpayCallback = (req, res) => {
-  const { vnp_SecureHash, ...params } = req.query;
-  const secretKey = process.env.VNP_HASHSECRET;
-
-  const sorted = sortObject(params);
-  const signData = qs.stringify(sorted, { encode: false });
-  const hmac = crypto.createHmac('sha512', secretKey);
-  const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
-
-  if (vnp_SecureHash === signed) {
-    if (params.vnp_ResponseCode === '00') {
-      return res.redirect(`/success?orderId=${params.vnp_TxnRef}`);
-    } else {
-      return res.redirect(`/failed?orderId=${params.vnp_TxnRef}`);
-    }
-  } else {
-    return res.status(400).send('Chữ ký không hợp lệ');
+  } catch (err) {
+    console.error('Lỗi tạo VietQR:', err.response?.data || err);
+    return res.status(500).json({ message: 'Không thể tạo mã QR thanh toán' });
   }
 };
 
-module.exports = { createPaymentUrl, verifyVnpayCallback };
