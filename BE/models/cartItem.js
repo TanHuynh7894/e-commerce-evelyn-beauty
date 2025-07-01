@@ -16,6 +16,12 @@ const CartItem = sequelize.define(
       field: "product_id",
       primaryKey: true,
     },
+    classificationId: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      field: "classification_id",
+      primaryKey: true,
+    },
     quantity: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -31,10 +37,9 @@ const CartItem = sequelize.define(
 // Thiết lập mối quan hệ
 CartItem.associate = (models) => {
   CartItem.belongsTo(models.Cart, { foreignKey: "cartId", as: "cart" });
-  CartItem.belongsTo(models.Product, {
-    foreignKey: "productId",
-    as: "product",
-  });
+  CartItem.belongsTo(models.Product, { foreignKey: "productId", as: "product" });
+  CartItem.belongsTo(models.Classification, { foreignKey: "classificationId", as: "classification" });
+  CartItem.belongsTo(models.ClassificationProduct, { foreignKey: "classificationId", targetKey: "classificationId", as: "classificationForProduct" });
 };
 
 module.exports = CartItem;
