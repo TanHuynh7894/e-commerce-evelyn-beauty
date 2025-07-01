@@ -28,17 +28,7 @@ exports.getCartByAccountId = async (req, res) => {
 
 // Xóa cart (body)
 exports.deleteCart = async (req, res) => {
-  try {
-    const { cartId } = req.body;
-    const { accountId } = req.user;
-    if (!cartId) return res.status(400).json({ message: 'Thiếu cartId' });
-    // Chỉ xóa cart nếu cartId thuộc về accountId hiện tại
-    const deleted = await Cart.destroy({ where: { cartId, accountId } });
-    if (!deleted) return res.status(404).json({ message: 'Không tìm thấy cart hoặc không có quyền' });
-    res.json({ message: 'Đã xóa cart' });
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi xóa cart', error: error.message });
-  }
+  // Không cho phép xóa cart
+  return res.status(403).json({ message: 'Không được phép xóa cart.' });
 };
-
 
