@@ -23,7 +23,7 @@ router.post(
 );
 
 // Tạo đơn hàng GHN
-router.post("/create-order", deliveryController.createOrder);
+router.post("/create-order-ghn-from-order", verifyToken, deliveryController.createOrderGhnFromOrder);
 
 // Lấy thông tin đơn hàng GHN
 router.post("/order-info", deliveryController.getOrderInfo);
