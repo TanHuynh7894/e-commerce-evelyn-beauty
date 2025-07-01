@@ -63,7 +63,7 @@ exports.getAllProducts = async (req, res) => {
 exports.getProductsByCategory = async (req, res) => {
   const categoryId = req.query.category;
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
 
   try {
@@ -152,7 +152,7 @@ exports.getProductsByCategory = async (req, res) => {
 exports.getProductsByBrand = async (req, res) => {
   const { brand } = req.query;
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
 
   try {
@@ -224,7 +224,7 @@ exports.getProductsByBrand = async (req, res) => {
 exports.getProductsByCategoryAndBrand = async (req, res) => {
   const { category, brand } = req.query;
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
+  const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
 
   try {
