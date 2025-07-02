@@ -742,9 +742,20 @@ exports.getProductDetail = async (req, res) => {
         { model: Classification, as: "classification", attributes: ["name"] },
       ],
     });
+    // Log classificationId của sản phẩm được chọn
+    const classificationIds = classificationLinks.map(
+      (link) => link.classificationId
+    );
+    console.log(
+      "classificationIds for product",
+      productId,
+      ":",
+      classificationIds
+    );
     const classifications = classificationLinks
       .filter((link) => link.classification && link.classification.name)
       .map((link) => ({
+        classificationId: link.classificationId,
         name: link.classification.name,
         quantity: link.quantity,
       }));
