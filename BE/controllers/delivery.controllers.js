@@ -317,7 +317,7 @@ module.exports = {
 
       const service_id = services[0].service_id;
 
-      // 5. Gọi tính phí
+      // 5. Gọi tính phí tiền
       const feeRes = await ghn.post("/v2/shipping-order/fee", {
         service_id,
         insurance_value: 1000000,
@@ -338,7 +338,7 @@ module.exports = {
       );
       res.status(500).json({
         success: false,
-        message: "Lỗi tính phí vận chuyển từ profile",
+        message: "Lỗi tính phí vận chuyển",
         error: error?.response?.data || error.message,
       });
     }
