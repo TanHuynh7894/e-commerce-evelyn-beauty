@@ -27,6 +27,11 @@ const CartItem = sequelize.define(
       allowNull: false,
       defaultValue: 1,
     },
+    status: {
+      type: DataTypes.ENUM('ON', 'OFF'),
+      allowNull: false,
+      defaultValue: 'ON',
+    },
   },
   {
     tableName: "cart_item",

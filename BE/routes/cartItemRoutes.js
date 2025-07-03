@@ -10,13 +10,13 @@ router.get("/", verifyToken, requireRole('CU'), logCartItemRequest, cartItemCont
 
 
 
-// Thêm cart item (body: cartId, productId, quantity)
+// Thêm cart item (body: cartId, productId,classificationId, quantity)
 router.post("/add", verifyToken, requireRole('CU'), validateCartItemBody, logCartItemRequest, cartItemController.createCartItem);
 
-// Cập nhật số lượng cart item (body: cartId, productId, quantity)
+// Cập nhật số lượng cart item (body: cartId, productId,classificationId, quantity)
 router.put("/update",verifyToken, requireRole('CU'), validateCartItemBody,logCartItemRequest,cartItemController.updateCartItem);
 
-// Xóa cart item (body: cartId, productId)
+// Xóa cart item (body: cartId, productId,classificationId)
 router.delete("/delete",verifyToken, requireRole('CU'), logCartItemRequest,cartItemController.deleteCartItem);
 
 module.exports = router; 

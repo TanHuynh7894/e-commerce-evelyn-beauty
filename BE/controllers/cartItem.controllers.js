@@ -13,7 +13,7 @@ exports.getAllCartItems = async (req, res) => {
       return res.status(404).json({ message: "Khách hàng chưa có giỏ hàng" });
     }
     const cartItems = await CartItem.findAll({
-      where: { cartId: cart.cartId },
+      where: { cartId: cart.cartId, status: 'ON' },
       include: [
         { model: Product, as: "product", attributes: ["productId", "name", "price", "image_1"] },
         { model: Classification, as: "classification", attributes: ["classificationId", "name"] },
@@ -47,11 +47,15 @@ exports.createCartItem = async (req, res) => {
   try {
     const [cartItem, created] = await CartItem.findOrCreate({
       where: { cartId, productId, classificationId },
-      defaults: { quantity },
+      defaults: { quantity, status: 'ON' },
     });
     if (!created) {
-      // Nếu đã tồn tại thì cập nhật số lượng
-      cartItem.quantity += quantity;
+      if (cartItem.status === 'OFF') {
+        cartItem.status = 'ON';
+        cartItem.quantity = quantity;
+      } else {
+        cartItem.quantity += quantity;
+      }
       await cartItem.save();
     }
     // Lấy lại cartItem kèm thông tin product, classification và classificationForProduct
@@ -91,6 +95,9 @@ exports.updateCartItem = async (req, res) => {
   try {
     const cartItem = await CartItem.findOne({ where: { cartId, productId, classificationId } });
     if (!cartItem) return res.status(404).json({ message: "Không tìm thấy cart item" });
+    if (cartItem.status !== 'ON') {
+      return res.status(400).json({ message: "Sản phẩm này hiện không khả dụng trong giỏ hàng, bạn không thể thay đổi số lượng." });
+    }
     cartItem.quantity = quantity;
     await cartItem.save();
 
@@ -129,9 +136,11 @@ exports.updateCartItem = async (req, res) => {
 exports.deleteCartItem = async (req, res) => {
   const { cartId, productId, classificationId } = req.body;
   try {
-    const deleted = await CartItem.destroy({ where: { cartId, productId, classificationId } });
-    if (!deleted) return res.status(404).json({ message: "Không tìm thấy cart item để xóa" });
-    res.json({ message: "Đã xóa cart item thành công" });
+    const cartItem = await CartItem.findOne({ where: { cartId, productId, classificationId } });
+    if (!cartItem) return res.status(404).json({ message: "Không tìm thấy cart item để xóa" });
+    cartItem.status = 'OFF';
+    await cartItem.save();
+    res.json({ message: "Sản phẩm đã được ẩn khỏi giỏ hàng của bạn." });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server khi xóa cart item", error });
   }
