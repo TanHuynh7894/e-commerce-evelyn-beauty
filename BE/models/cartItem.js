@@ -5,6 +5,7 @@ const CartItem = sequelize.define('CartItem', {
   cartId: {
     type: DataTypes.STRING(20),
     allowNull: false,
+    primaryKey: true,
     field: 'cart_id'
   },
   productId: {

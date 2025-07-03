@@ -1,20 +1,25 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database'); 
+const sequelize = require('../config/database');
 
 const Payment = sequelize.define('Payment', {
   paymentId: {
     type: DataTypes.STRING(20),
+    allowNull: false,
     primaryKey: true,
+    field: 'payment_id'
   },
-  method: DataTypes.STRING(100),
-  status: DataTypes.ENUM('pending', 'completed', 'failed'),
+  transactionNo: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'transaction_no'
+  }
 }, {
-  tableName: 'payments',
-  timestamps: false,
+  tableName: 'payment',
+  timestamps: false
 });
 
 Payment.associate = (models) => {
-  Payment.hasMany(models.Order, { foreignKey: 'paymentId', as: 'orders' });
+  Payment.hasOne(models.Order, { foreignKey: 'paymentId', as: 'order' });
 };
 
 module.exports = Payment;
