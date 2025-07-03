@@ -1,4 +1,5 @@
 const { Payment, Order, OrderDetail, Cart, CartItem, Product, PromotionProgram, Profile } = require('../models');
+const { calculateFeeFromProfile } = require('../controllers/delivery.controllers');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 const moment = require('moment');
@@ -52,7 +53,13 @@ exports.createPayOSLink = async (req, res) => {
       promotionApplied = promotion.programId;
     }
 
-    const finalAmount = Math.floor(amount - discount);
+    // 5. Tính phí vận chuyển từ profile
+    if (!profileId) return res.status(400).json({ message: 'Thiếu profileId' });
+    const feeResult = await calculateFeeFromProfile({ body: { profileId }, user: { accountId } }, { json: () => {} });
+    const shipFee = feeResult?.data?.total || 0;
+
+    // 6. Tổng tiền cuối cùng
+    const finalAmount = Math.floor(amount - discount + shipFee);
     const paymentId = 'PM' + moment().format('YYYYMMDDHHmmss');
 
     let checkoutUrl;
@@ -85,7 +92,7 @@ exports.createPayOSLink = async (req, res) => {
         {
           headers: {
             'x-client-id': process.env.PAYOS_CLIENT_ID,
-            'x-api-key': process.env.PAYOS_API_KEY,
+            'x-api-key': process.env.PAYOS_API_KEY, 
             'Content-Type': 'application/json'
           }
         }
