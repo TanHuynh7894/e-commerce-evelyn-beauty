@@ -247,6 +247,10 @@ const resetPassword = async (req, res) => {
 const createAccount = async (req, res) => {
   const { name, email, password, role } = req.body;
 
+  if (!name || name.trim() === "") {
+    return res.status(400).json({ message: "Vui lòng nhập tên để đăng ký" });
+  }
+
   if (!["OS"].includes(role)) {
     return res.status(400).json({ message: "Chỉ tạo được OS hoặc SF" });
   }
