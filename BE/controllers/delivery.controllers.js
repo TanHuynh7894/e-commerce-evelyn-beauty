@@ -112,6 +112,18 @@ module.exports = {
     const orderData = req.body;
     try {
       const response = await ghn.post("/v2/shipping-order/create", orderData);
+
+      // Lưu order_code vào bảng delivery với deliveryId mới
+      const order_code = response.data.data?.order_code;
+      if (order_code) {
+        const { Delivery } = require("../models");
+        const newDeliveryId = "DL" + Date.now();
+        await Delivery.create({
+          deliveryId: newDeliveryId,
+          transaction_no: order_code,
+        });
+      }
+
       res.json({ success: true, data: response.data.data });
     } catch (error) {
       console.error(
@@ -208,15 +220,29 @@ module.exports = {
           .trim();
       }
 
+      const PROVINCE_ALIASES = {
+        "thanh pho hcm": "ho chi minh",
+        "tp hcm": "ho chi minh",
+        tphcm: "ho chi minh",
+        hcm: "ho chi minh",
+        "tp ho chi minh": "ho chi minh",
+        "thanh pho ho chi minh": "ho chi minh",
+        hn: "ha noi",
+        "tp ha noi": "ha noi",
+      };
+
       function normalizeText(str) {
         if (!str) return "";
-        str = str.toLowerCase();
-        str = str.replace(
-          /^(tp|tinh|thanh pho|quan|huyen|thi xa|phuong|xa)\.?\s*/gi,
-          ""
-        );
-        str = str.replace(/\./g, "").trim();
-        return removeVietnameseTones(str);
+        str = removeVietnameseTones(str)
+          .toLowerCase()
+          .replace(
+            /^(tp|tinh|thanh pho|quan|huyen|thi xa|phuong|xa)\.?\s*/gi,
+            ""
+          )
+          .replace(/\./g, "")
+          .replace(/[\s,-]+/g, " ")
+          .trim();
+        return PROVINCE_ALIASES[str] || str;
       }
 
       const parsed = parseAddressByComma(profile.address);
@@ -236,7 +262,7 @@ module.exports = {
       const provinces = provincesRes.data.data;
       const parsedProvinceNorm = normalizeText(parsed.province);
 
-      const province = provinces.find((p) => {
+      let province = provinces.find((p) => {
         const pNorm = normalizeText(p.ProvinceName);
         return (
           pNorm === parsedProvinceNorm ||
@@ -244,6 +270,16 @@ module.exports = {
           parsedProvinceNorm.includes(pNorm)
         );
       });
+
+      // Nếu chưa tìm được, thử lại theo alias mapping
+      if (!province) {
+        const alias = PROVINCE_ALIASES[parsedProvinceNorm];
+        if (alias) {
+          province = provinces.find(
+            (p) => normalizeText(p.ProvinceName) === alias
+          );
+        }
+      }
 
       if (!province) {
         return res.status(400).json({
@@ -258,14 +294,18 @@ module.exports = {
         province_id: province.ProvinceID,
       });
       const districts = districtsRes.data.data;
-      const parsedDistrictNorm = normalizeText(parsed.district);
+      const parsedDistrictNorm = normalizeText(parsed.district).replace(
+        "thanh pho ",
+        ""
+      );
 
       const district = districts.find((d) => {
         const dNorm = normalizeText(d.DistrictName);
         return (
           dNorm === parsedDistrictNorm ||
           dNorm.includes(parsedDistrictNorm) ||
-          parsedDistrictNorm.includes(dNorm)
+          parsedDistrictNorm.includes(dNorm) ||
+          dNorm.startsWith(parsedDistrictNorm.slice(0, 5))
         );
       });
 
@@ -349,6 +389,7 @@ module.exports = {
     const { orderId } = req.body;
     const accountId = req.user?.accountId;
 
+    /* ───── VALIDATE PARAMS ───── */
     if (!accountId)
       return res
         .status(400)
@@ -356,9 +397,56 @@ module.exports = {
     if (!orderId)
       return res.status(400).json({ success: false, message: "Thiếu orderId" });
 
+    /* ───── HELPER FUNCTIONS ───── */
+    const PROVINCE_ALIASES = {
+      "thanh pho hcm": "ho chi minh",
+      "tp hcm": "ho chi minh",
+      tphcm: "ho chi minh",
+      hcm: "ho chi minh",
+      "tp ho chi minh": "ho chi minh",
+      "thanh pho ho chi minh": "ho chi minh",
+      hn: "ha noi",
+      "tp ha noi": "ha noi",
+      "thanh pho ha noi": "ha noi",
+    };
+
+    const removeTones = (str = "") =>
+      str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const normalizeText = (str = "") => {
+      str = removeTones(str)
+        .toLowerCase()
+        .replace(/^(tp|tinh|thanh pho|quan|huyen|thi xa|phuong|xa)\.?\s*/gi, "")
+        .replace(/\./g, "")
+        .replace(/[\s,-]+/g, " ")
+        .trim();
+      return PROVINCE_ALIASES[str] || str;
+    };
+
+    const parseAddressByComma = (address = "") => {
+      const parts = address
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const n = parts.length;
+      return {
+        detail: parts[0] || "",
+        ward: parts[n - 3] || "",
+        district: parts[n - 2] || "",
+        province: parts[n - 1] || "",
+      };
+    };
+
     try {
       const { Order, Profile, OrderDetail, Product } = require("../models");
 
+      /* 1. LẤY DỮ LIỆU ĐƠN & PROFILE */
       const order = await Order.findOne({ where: { orderId, accountId } });
       if (!order)
         return res
@@ -374,8 +462,25 @@ module.exports = {
           message: "Không tìm thấy profile hoặc địa chỉ",
         });
 
+      /* 2. LẤY CHI TIẾT ITEM */
       const orderDetails = await OrderDetail.findAll({ where: { orderId } });
+      let items = [];
 
+      if (orderDetails.length) {
+        const products = await Promise.all(
+          orderDetails.map((d) =>
+            Product.findOne({ where: { productId: d.productId } })
+          )
+        );
+        items = orderDetails.map((d, i) => ({
+          name: products[i]?.name || "Sản phẩm",
+          quantity: d.quantity,
+        }));
+      } else if (Array.isArray(req.body.items)) {
+        items = req.body.items;
+      }
+
+      /* 3. THÔNG TIN NGƯỜI NHẬN & THÔNG SỐ GỬI */
       const note = order.note || req.body.note || "";
       const required_note =
         order.required_note || req.body.required_note || "KHONGCHOXEMHANG";
@@ -383,59 +488,8 @@ module.exports = {
       const to_name = profile.name || req.body.to_name || "";
       const to_phone = profile.phone || req.body.to_phone || "";
 
-      let items = [];
-      if (orderDetails.length > 0) {
-        for (const detail of orderDetails) {
-          const product = await Product.findOne({
-            where: { productId: detail.productId },
-          });
-          items.push({
-            name: product ? product.name : "Sản phẩm",
-            quantity: detail.quantity,
-          });
-        }
-      } else if (req.body.items && Array.isArray(req.body.items)) {
-        items = req.body.items;
-      }
-
-      function parseAddressByComma(address) {
-        const parts = address
-          .split(",")
-          .map((p) => p.trim())
-          .filter(Boolean);
-        const n = parts.length;
-        return {
-          detail: parts[0] || "",
-          ward: parts[n - 3] || "",
-          district: parts[n - 2] || "",
-          province: parts[n - 1] || "",
-        };
-      }
-
-      function removeVietnameseTones(str) {
-        return str
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/đ/g, "d")
-          .replace(/Đ/g, "D")
-          .replace(/\s+/g, " ")
-          .trim();
-      }
-
-      function normalizeText(str) {
-        if (!str) return "";
-        str = str.toLowerCase();
-        str = str.replace(
-          /^(tp|tinh|thanh pho|quan|huyen|thi xa|phuong|xa)\.?\s*/gi,
-          ""
-        );
-        str = str.replace(/\./g, "").trim();
-        return removeVietnameseTones(str);
-      }
-
+      /* 4. PARSE & MAP ĐỊA CHỈ */
       const parsed = parseAddressByComma(profile.address);
-      console.log("parsed:", parsed);
-
       if (!parsed.province || !parsed.district || !parsed.ward) {
         return res.status(400).json({
           success: false,
@@ -445,18 +499,24 @@ module.exports = {
         });
       }
 
-      const provincesRes = await ghn.get("/master-data/province");
-      const provinces = provincesRes.data.data;
-
+      /* 4.1. TỈNH / THÀNH */
+      const provinces = (await ghn.get("/master-data/province")).data.data;
       const parsedProvinceNorm = normalizeText(parsed.province);
-      const province = provinces.find((p) => {
-        const provinceNorm = normalizeText(p.ProvinceName);
-        return (
-          provinceNorm === parsedProvinceNorm ||
-          provinceNorm.includes(parsedProvinceNorm) ||
-          parsedProvinceNorm.includes(provinceNorm)
+
+      let province =
+        provinces.find((p) => {
+          const norm = normalizeText(p.ProvinceName);
+          return (
+            norm === parsedProvinceNorm ||
+            norm.includes(parsedProvinceNorm) ||
+            parsedProvinceNorm.includes(norm)
+          );
+        }) ||
+        provinces.find(
+          (p) =>
+            normalizeText(p.ProvinceName) ===
+            PROVINCE_ALIASES[parsedProvinceNorm]
         );
-      });
 
       if (!province)
         return res.status(400).json({
@@ -465,18 +525,24 @@ module.exports = {
           parsedProvince: parsed.province,
         });
 
-      const districtsRes = await ghn.post("/master-data/district", {
-        province_id: province.ProvinceID,
-      });
-      const districts = districtsRes.data.data;
+      /* 4.2. QUẬN / HUYỆN */
+      const districts = (
+        await ghn.post("/master-data/district", {
+          province_id: province.ProvinceID,
+        })
+      ).data.data;
 
-      const parsedDistrictNorm = normalizeText(parsed.district);
+      const parsedDistrictNorm = normalizeText(parsed.district).replace(
+        "thanh pho ",
+        ""
+      );
       const district = districts.find((d) => {
-        const districtNorm = normalizeText(d.DistrictName);
+        const norm = normalizeText(d.DistrictName);
         return (
-          districtNorm === parsedDistrictNorm ||
-          districtNorm.includes(parsedDistrictNorm) ||
-          parsedDistrictNorm.includes(districtNorm)
+          norm === parsedDistrictNorm ||
+          norm.includes(parsedDistrictNorm) ||
+          parsedDistrictNorm.includes(norm) ||
+          norm.startsWith(parsedDistrictNorm.slice(0, 5))
         );
       });
 
@@ -487,18 +553,20 @@ module.exports = {
           parsedDistrict: parsed.district,
         });
 
-      const wardsRes = await ghn.post("/master-data/ward", {
-        district_id: district.DistrictID,
-      });
-      const wards = wardsRes.data.data;
+      /* 4.3. PHƯỜNG / XÃ */
+      const wards = (
+        await ghn.post("/master-data/ward", {
+          district_id: district.DistrictID,
+        })
+      ).data.data;
 
       const parsedWardNorm = normalizeText(parsed.ward);
       const ward = wards.find((w) => {
-        const wardNorm = normalizeText(w.WardName);
+        const norm = normalizeText(w.WardName);
         return (
-          wardNorm === parsedWardNorm ||
-          wardNorm.includes(parsedWardNorm) ||
-          parsedWardNorm.includes(wardNorm)
+          norm === parsedWardNorm ||
+          norm.includes(parsedWardNorm) ||
+          parsedWardNorm.includes(norm)
         );
       });
 
@@ -509,23 +577,23 @@ module.exports = {
           parsedWard: parsed.ward,
         });
 
-      const availableServicesRes = await ghn.post(
-        "/v2/shipping-order/available-services",
-        {
-          shop_id: parseInt(process.env.GHN_SHOP_ID),
-          from_district: 1454,
+      /* 5. XÁC ĐỊNH DỊCH VỤ GHN */
+      const services = (
+        await ghn.post("/v2/shipping-order/available-services", {
+          shop_id: +process.env.GHN_SHOP_ID,
+          from_district: 1454, // Mã quận kho gửi
           to_district: district.DistrictID,
-        }
-      );
-      const services = availableServicesRes.data.data;
+        })
+      ).data.data;
 
-      if (!services || services.length === 0)
+      if (!services?.length)
         throw new Error("Không có dịch vụ giao hàng phù hợp");
 
       const service_id = services[0].service_id;
 
+      /* 6. TẠO ĐƠN GHN */
       const orderData = {
-        payment_type_id: 2,
+        payment_type_id: 2, // Người nhận trả
         note,
         required_note,
         to_name,
@@ -539,31 +607,33 @@ module.exports = {
         height: 10,
         service_id,
         service_type_id: 2,
-        items: items.length > 0 ? items : [{ name: "Sản phẩm", quantity: 1 }],
+        items: items.length ? items : [{ name: "Sản phẩm", quantity: 1 }],
       };
 
       const response = await ghn.post("/v2/shipping-order/create", orderData);
 
-      console.log("GHN mapping:", {
-        provinceName: province.ProvinceName,
-        provinceId: province.ProvinceID,
-        districtName: district.DistrictName,
-        districtId: district.DistrictID,
-        wardName: ward.WardName,
-        wardCode: ward.WardCode,
-        to_address: parsed.detail,
-      });
+      // Lưu order_code vào bảng delivery với deliveryId mới
+      const order_code = response.data.data?.order_code;
+      if (order_code) {
+        const { Delivery } = require("../models");
+        const newDeliveryId = "DL" + Date.now();
+        await Delivery.create({
+          deliveryId: newDeliveryId,
+          transaction_no: order_code,
+        });
+      }
 
-      res.json({ success: true, data: response.data.data });
-    } catch (error) {
+      /* 7. TRẢ KẾT QUẢ */
+      return res.json({ success: true, data: response.data.data });
+    } catch (err) {
       console.error(
         "createOrderGhnFromOrder error:",
-        error?.response?.data || error.message
+        err?.response?.data || err.message
       );
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: "Lỗi tạo đơn hàng GHN từ order",
-        error: error?.response?.data || error.message,
+        error: err?.response?.data || err.message,
       });
     }
   },
