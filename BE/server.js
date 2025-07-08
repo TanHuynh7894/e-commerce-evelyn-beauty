@@ -4,13 +4,13 @@ const dotenv = require("dotenv");
 const session = require("express-session");
 const passport = require("./auth/passport");
 
-const productsRoutes = require("./routes/productRoutes");
+// const productsRoutes = require("./routes/productRoutes");
 //  Import route đã tích hợp tất cả (login, register, forgot/reset password, OTP, Google, protected)
 const authRoutes = require("./routes/accountRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
-const profileRoutes = require("./routes/profileRoutes");
-const orderRoutes = require("./routes/orderRoutes");
-const promotionProgramRoutes = require("./routes/promotionProgramRoutes");
+// const paymentRoutes = require("./routes/paymentRoutes");
+// const profileRoutes = require("./routes/profileRoutes");
+// const orderRoutes = require("./routes/orderRoutes");
+// const promotionProgramRoutes = require("./routes/promotionProgramRoutes");
 
 
 dotenv.config();
@@ -40,23 +40,23 @@ app.get("/", (req, res) => {
 //  Mount tất cả route vào /auth
 app.use("/auth", authRoutes); // Bao gồm login, register, forgot-password, reset-password, OTP, Google, và cả protected
 
-app.use("/api/protected", authRoutes);
-//Route cho products
-app.use("/api/products", productsRoutes);
+// app.use("/api/protected", authRoutes);
+// //Route cho products
+// app.use("/api/products", productsRoutes);
 
-//Route cho profiles
-app.use("/api/profiles", profileRoutes);
+// //Route cho profiles
+// app.use("/api/profiles", profileRoutes);
 
-//Route cho promotion programs
-app.use("/api/promotion-programs", promotionProgramRoutes);
+// //Route cho promotion programs
+// app.use("/api/promotion-programs", promotionProgramRoutes);
 
 //Route cho accounts
 app.use("/api/accounts", authRoutes);
 
 //Route cho orders
-app.use("/api/orders", orderRoutes);
-//Route cho payment
-app.use("/api/payment", paymentRoutes);
+// app.use("/api/orders", orderRoutes);
+// //Route cho payment
+// app.use("/api/payment", paymentRoutes);
 // Khởi động server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

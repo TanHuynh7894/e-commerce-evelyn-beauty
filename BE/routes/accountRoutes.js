@@ -1,26 +1,26 @@
 const express = require("express");
 const router = express.Router();
-const accountController = require("../controllers/accounts.controllers");
-const { verifyToken, requireRole,validatePassword } = require("../middlewares/auth");
+const accountController = require("../controllers/account.controllers");
+const { verifyToken, requireRole, validatePassword, validateEmail } = require("../middlewares/auth");
 const passport = require("../auth/passport");
 const {
   createAccount,
   getAllAccounts,
   updateAccount,
   deleteAccount,
-} = require("../controllers/accounts.controllers");
+} = require("../controllers/account.controllers");
 
 // OTP routes
 router.post("/verify-otp", accountController.verifyOtp);
 
 // Auth routes
 router.post("/login", accountController.loginAccount);
-router.post("/register", validatePassword,accountController.registerAccount);
+router.post("/register", validatePassword,validateEmail,accountController.registerAccount);
 router.post("/google", accountController.googleLogin);
 
 // Quên mật khẩu (JWT không lưu DB)
-router.post("/forgot-password", accountController.forgotPassword);
-router.post("/reset-password",validatePassword, accountController.resetPassword);
+router.post("/forgot-password", validateEmail,accountController.forgotPassword);
+router.post("/reset-password",validatePassword,validateEmail, accountController.resetPassword);
 
 //Logout route
 router.post("/logout", accountController.logout);
@@ -77,7 +77,7 @@ router.get(
   }
 );
 
-router.post("/create", verifyToken, requireRole("OS"), createAccount);
+router.post("/create", verifyToken, validateEmail,requireRole("OS"), createAccount);
 router.get("/all", verifyToken, requireRole("OS"), getAllAccounts);
 router.put("/update/:accountId", verifyToken, requireRole("OS"), updateAccount);
 router.delete("/delete/:accountId",verifyToken,requireRole("OS"),deleteAccount);

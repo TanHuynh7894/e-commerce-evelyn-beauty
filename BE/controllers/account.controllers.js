@@ -53,6 +53,10 @@ const loginAccount = async (req, res) => {
 const registerAccount = async (req, res) => {
   const { name, email, password } = req.body;
 
+  if (!name || name.trim() === "") {
+    return res.status(400).json({ message: "Vui lòng nhập tên để đăng ký" });
+  }
+
   try {
     const existing = await Account.findOne({ where: { email } });
 
