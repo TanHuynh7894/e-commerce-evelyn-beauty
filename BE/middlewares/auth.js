@@ -79,10 +79,25 @@ const validatePassword = (req, res, next) => {
   next();
 };
 
+// kiểm tra email có hợp lệ hay không
+const validateEmail = (req, res, next) => {
+  const { email } = req.body;
+
+  const emailRegex =
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  if (!email || !emailRegex.test(email.trim())) {
+    return res.status(400).json({ message: "Email không hợp lệ" });
+  }
+
+  next();
+};
+
 //  Export đúng cách
 module.exports = {
   verifyToken,
   requireRole,
   logDbAccess,
   validatePassword,
+  validateEmail
 };
