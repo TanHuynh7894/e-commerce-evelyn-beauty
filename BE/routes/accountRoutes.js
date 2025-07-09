@@ -5,6 +5,7 @@ const {
   verifyToken,
   requireRole,
   validatePassword,
+  validateEmail,
 } = require("../middlewares/auth");
 const passport = require("../auth/passport");
 const {
@@ -18,14 +19,15 @@ const {
 router.post("/verify-otp", accountController.verifyOtp);
 
 // Auth routes
-router.post("/login", accountController.loginAccount);
-router.post("/register", validatePassword, accountController.registerAccount);
+router.post("/login", validateEmail,accountController.loginAccount);
+router.post("/register", validatePassword,validateEmail, accountController.registerAccount);
 router.post("/google", accountController.googleLogin);
 
 // Quên mật khẩu (JWT không lưu DB)
-router.post("/forgot-password", accountController.forgotPassword);
+router.post("/forgot-password", validateEmail,accountController.forgotPassword);
 router.post(
   "/reset-password",
+  validateEmail,
   validatePassword,
   accountController.resetPassword
 );
@@ -88,6 +90,7 @@ router.get(
 router.post(
   "/create",
   verifyToken,
+  validateEmail,
   validatePassword,
   requireRole("OS"),
   createAccountWithOtp
