@@ -32,7 +32,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// 🏠 Route kiểm tra server
+//  Route kiểm tra server
 app.get("/", (req, res) => {
   res.send(" Server Evelyn Beauty hoạt động! Vào /auth để dùng API.");
 });

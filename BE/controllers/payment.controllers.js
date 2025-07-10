@@ -1,18 +1,16 @@
 const { Payment, Order, OrderDetail, Cart, CartItem, Product, PromotionProgram, Profile } = require('../models');
 const { v4: uuidv4 } = require('uuid');
-const axios = require('axios');
 const moment = require('moment');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
-
+const PayOS = require('@payos/node'); //  Dùng SDK
 require('dotenv').config();
 
-function generateSignature(body, checksumKey) {
-  const sortedKeys = Object.keys(body).sort();
-  const rawData = sortedKeys.map((key) => `${key}=${JSON.stringify(body[key])}`).join('&');
-  return crypto.createHmac('sha256', checksumKey).update(rawData).digest('hex');
-}
-
+const payOS = new PayOS(
+  process.env.PAYOS_CLIENT_ID,
+  process.env.PAYOS_API_KEY,
+  process.env.PAYOS_CHECKSUM_KEY
+);
 
 exports.createPayOSLink = async (req, res) => {
   try {
@@ -69,14 +67,15 @@ exports.createPayOSLink = async (req, res) => {
     const items = cartItems.map(item => ({
       name: `SP-${item.productId}`,
       quantity: item.quantity,
-      price: item.product.price
+      price: Number(item.product.price)
     }));
     const expiredAt = Math.floor(Date.now() / 1000) + 15 * 60;
-    // 6. Gọi PayOS để lấy checkoutUrl
+
+    // 6. Tạo link thanh toán bằng SDK PayOS
     const payload = {
       orderCode,
       amount: finalAmount,
-      description: 'Thanh toán đơn hàng Evelyn Beauty',
+      description: `Thanh toán đơn `,
       cancelUrl: process.env.PAYOS_CANCEL_URL,
       returnUrl: process.env.PAYOS_RETURN_URL,
       items,
@@ -86,29 +85,13 @@ exports.createPayOSLink = async (req, res) => {
         email: req.user?.email || 'user@example.com'
       }
     };
-    payload.signature = generateSignature(payload, process.env.PAYOS_CHECKSUM_KEY)
 
-    console.log('[PayOS] Payload gửi:', payload);
-    console.log('[PayOS] Headers gửi:', {
-      'x-client-id': process.env.PAYOS_CLIENT_ID,
-      'x-api-key': process.env.PAYOS_API_KEY
-    });
-    console.log('[PayOS] Payload gửi:', JSON.stringify(payload, null, 2));
+    const paymentLinkResponse = await payOS.createPaymentLink(payload);
+    const checkoutUrl = paymentLinkResponse.checkoutUrl;
 
-
-    const response = await axios.post('https://sandbox.api-merchant.payos.vn/v2/payment-requests', payload, {
-      headers: {
-        'x-client-id': process.env.PAYOS_CLIENT_ID,
-        'x-api-key': process.env.PAYOS_API_KEY,
-        'Content-Type': 'application/json'
-      }
-    });
-
-
-    const checkoutUrl = response?.data?.checkoutUrl;
     if (!checkoutUrl) {
-      console.error('[PayOS] Không nhận được checkoutUrl:', response.data);
-      return res.status(500).json({ message: 'Không nhận được đường dẫn thanh toán', rawResponse: response.data });
+      console.error('[PayOS] Không nhận được checkoutUrl:', paymentLinkResponse);
+      return res.status(500).json({ message: 'Không nhận được đường dẫn thanh toán' });
     }
 
     // 7. Lưu payment tạm thời
@@ -130,7 +113,8 @@ exports.createPayOSLink = async (req, res) => {
     return res.status(500).json({ message: 'Lỗi tạo link thanh toán', error: error.message });
   }
 };
-// Webhook giữ nguyên như bạn đã viết
+
+// Webhook xử lý thanh toán
 exports.handlePayOSWebhook = async (req, res) => {
   const { orderCode, status, transactionId, accountId } = req.body;
 
