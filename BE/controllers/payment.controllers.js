@@ -3,7 +3,16 @@ const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 const moment = require('moment');
 const { Op } = require('sequelize');
+const crypto = require('crypto');
+
 require('dotenv').config();
+
+function generateSignature(body, checksumKey) {
+  const sortedKeys = Object.keys(body).sort();
+  const rawData = sortedKeys.map((key) => `${key}=${JSON.stringify(body[key])}`).join('&');
+  return crypto.createHmac('sha256', checksumKey).update(rawData).digest('hex');
+}
+
 
 exports.createPayOSLink = async (req, res) => {
   try {
@@ -11,7 +20,7 @@ exports.createPayOSLink = async (req, res) => {
     const { profileId } = req.body;
 
     // 1. Lấy giỏ hàng
-    const cart = await Cart.findOne({ where: { accountId }, attributes: ['cartId', 'accountId'] });
+    const cart = await Cart.findOne({ where: { accountId }, attributes: ['cartId'] });
     if (!cart) return res.status(404).json({ message: 'Không tìm thấy giỏ hàng' });
 
     // 2. Lấy sản phẩm trong giỏ hàng
@@ -19,16 +28,16 @@ exports.createPayOSLink = async (req, res) => {
       where: { cartId: cart.cartId },
       include: [{ model: Product, as: 'product', attributes: ['productId', 'price'] }]
     });
-    if (cartItems.length === 0) return res.status(400).json({ message: 'Giỏ hàng trống' });
+    if (!cartItems.length) return res.status(400).json({ message: 'Giỏ hàng trống' });
 
     // 3. Tính tổng tiền
-    const amount = cartItems.reduce((total, item) => total + item.quantity * item.product.price, 0);
+    const amount = cartItems.reduce((sum, item) => sum + item.quantity * item.product.price, 0);
 
-    // 4. Tìm chương trình khuyến mãi phù hợp
+    // 4. Áp dụng khuyến mãi (nếu có)
     let discount = 0;
     let promotionApplied = null;
     const today = new Date();
-    const dayOfWeek = today.getDay();
+    const dayOfWeek = today.getDay(); // 0 = Chủ nhật
 
     const promotions = await PromotionProgram.findAll({
       where: {
@@ -40,85 +49,72 @@ exports.createPayOSLink = async (req, res) => {
       order: [['value', 'DESC']]
     });
 
-    const promotion = promotions.find(promo => {
+    const matchedPromo = promotions.find(promo => {
       if (!promo.condition2) return false;
-      const allowedDays = promo.condition2.split(',').map(Number);
-      return allowedDays.includes(dayOfWeek);
+      const days = promo.condition2.split(',').map(Number);
+      return days.includes(dayOfWeek);
     });
 
-    if (promotion) {
-      discount = amount * parseFloat(promotion.value);
-      promotionApplied = promotion.programId;
+    if (matchedPromo) {
+      discount = amount * parseFloat(matchedPromo.value);
+      promotionApplied = matchedPromo.programId;
     }
 
-    // 5. Tính phí vận chuyển từ profile
-    // if (!profileId) return res.status(400).json({ message: 'Thiếu profileId' });
-
-    // const profile = await Profile.findOne({ where: { profileId, accountId, status: 'ON' } });
-    // if (!profile) return res.status(400).json({ message: 'Không tìm thấy hồ sơ giao hàng' });
-
-    // //  Cập nhật chỗ này để truyền đúng cho calculateFee
-    // const mockReq = {
-    //   body: {
-    //     toDistrict: profile.districtCode,
-    //     toWard: profile.wardCode,
-    //     service_id: 53320 // mã dịch vụ GHN tạm thời
-    //   },
-    //   user: { accountId }
-    // };
-
-    // const mockRes = {
-    //   json: (data) => data
-    // };
-
-    // const feeResult = await calculateFee(mockReq, mockRes);
-    // const shipFee = feeResult?.data?.total || 0;
     const finalAmount = Math.floor(amount - discount);
 
-    // 6. Tạo orderCode và paymentId
-    const orderCode = parseInt(moment().format('YYMMDDHHmmss')); 
-    const paymentId = 'PM' + orderCode;
+    // 5. Tạo orderCode + paymentId
+    const orderCode = parseInt(moment().format('YYMMDDHHmmss')); // 12 chữ số
+    const paymentId = `PM${orderCode}`;
 
-    // 7. Gửi request tới PayOS
-    let checkoutUrl;
+    const items = cartItems.map(item => ({
+      name: `SP-${item.productId}`,
+      quantity: item.quantity,
+      price: item.product.price
+    }));
+    const expiredAt = Math.floor(Date.now() / 1000) + 15 * 60;
+    // 6. Gọi PayOS để lấy checkoutUrl
     const payload = {
-      orderCode, // phải là số
+      orderCode,
       amount: finalAmount,
       description: 'Thanh toán đơn hàng Evelyn Beauty',
       cancelUrl: process.env.PAYOS_CANCEL_URL,
-      returnUrl: process.env.PAYOS_RETURN_URL
-    };
-
-    console.log('Payload gửi PayOS:', payload);
-
-    if (process.env.NODE_ENV === 'development') {
-      // MOCK LOCAL
-      checkoutUrl = `https://mock-checkout-url.com/pay/${orderCode}`;
-      console.log('MOCK MODE: Fake checkoutUrl');
-    } else {
-      const response = await axios.post(
-        'https://api-merchant.payos.vn/v2/payment-requests',
-        payload,
-        {
-          headers: {
-            'x-client-id': process.env.PAYOS_CLIENT_ID,
-            'x-api-key': process.env.PAYOS_API_KEY,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      checkoutUrl = response?.data?.checkoutUrl;
-      if (!checkoutUrl) {
-        console.error('Không có checkoutUrl:', response?.data);
-        return res.status(500).json({ message: 'Không nhận được checkoutUrl', rawResponse: response?.data });
+      returnUrl: process.env.PAYOS_RETURN_URL,
+      items,
+      expiredAt,
+      buyer: {
+        name: req.user?.name || 'Khách hàng',
+        email: req.user?.email || 'user@example.com'
       }
+    };
+    payload.signature = generateSignature(payload, process.env.PAYOS_CHECKSUM_KEY)
+
+    console.log('[PayOS] Payload gửi:', payload);
+    console.log('[PayOS] Headers gửi:', {
+      'x-client-id': process.env.PAYOS_CLIENT_ID,
+      'x-api-key': process.env.PAYOS_API_KEY
+    });
+    console.log('[PayOS] Payload gửi:', JSON.stringify(payload, null, 2));
+
+
+    const response = await axios.post('https://sandbox.api-merchant.payos.vn/v2/payment-requests', payload, {
+      headers: {
+        'x-client-id': process.env.PAYOS_CLIENT_ID,
+        'x-api-key': process.env.PAYOS_API_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+
+
+    const checkoutUrl = response?.data?.checkoutUrl;
+    if (!checkoutUrl) {
+      console.error('[PayOS] Không nhận được checkoutUrl:', response.data);
+      return res.status(500).json({ message: 'Không nhận được đường dẫn thanh toán', rawResponse: response.data });
     }
 
-    // 8. Lưu payment vào DB
+    // 7. Lưu payment tạm thời
     await Payment.create({ paymentId, transactionNo: 0 });
 
-    // 9. Trả về FE
+    // 8. Trả kết quả về FE
     res.status(200).json({
       checkoutUrl,
       orderCode,
@@ -129,12 +125,11 @@ exports.createPayOSLink = async (req, res) => {
       promotionApplied
     });
 
-  } catch (err) {
-    console.error('Lỗi khi tạo PayOS:', err);
-    res.status(500).json({ message: 'Lỗi tạo link thanh toán' });
+  } catch (error) {
+    console.error('[PayOS] Lỗi khi tạo link:', error.message);
+    return res.status(500).json({ message: 'Lỗi tạo link thanh toán', error: error.message });
   }
 };
-
 // Webhook giữ nguyên như bạn đã viết
 exports.handlePayOSWebhook = async (req, res) => {
   const { orderCode, status, transactionId, accountId } = req.body;
