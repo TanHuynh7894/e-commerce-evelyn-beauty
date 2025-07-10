@@ -17,6 +17,7 @@ const classificationRoutes = require("./routes/classificationRoutes");
 const classificationForProductRoutes = require("./routes/classificationForProductRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const orderDetailRoutes = require("./routes/orderDetailRoutes");
+const deliveryRoutes = require("./routes/deliveryRoutes");
 dotenv.config();
 
 const app = express();
@@ -81,6 +82,9 @@ app.use("/api/orders", orderRoutes);
 
 //Route cho orderDetail
 app.use("/api/order-details", orderDetailRoutes);
+
+//Route cho delivery
+app.use("/api/delivery", deliveryRoutes);
 
 // Khởi động server
 const PORT = process.env.PORT || 3000;
