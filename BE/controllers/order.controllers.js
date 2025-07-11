@@ -127,24 +127,32 @@ exports.getAllOrders = async (req, res) => {
 
 exports.updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
-    const { status } = req.body;
-    const staffId = req.user.accountId;
+    const { status, deliveryId } = req.body; // Lấy thêm deliveryId
+    const accountId = req.user.accountId;    // Lấy từ token (JWT)
 
     try {
         const order = await Order.findByPk(orderId);
-        if (!order) return res.status(404).json({ message: 'Không tìm thấy order' });
+        if (!order) {
+            return res.status(404).json({ message: 'Không tìm thấy order' });
+        }
 
         order.status = status;
-
+        order.deliveryId = deliveryId;
+        order.accountId = accountId;
 
         await order.save();
 
-        res.json({ message: 'Cập nhật trạng thái thành công', status });
+        res.json({
+            message: 'Cập nhật trạng thái và người giao hàng thành công',
+            status,
+            deliveryId
+        });
     } catch (err) {
         console.error('Lỗi cập nhật order:', err);
         res.status(500).json({ message: 'Lỗi cập nhật trạng thái đơn hàng' });
     }
 };
+
 
 exports.cancelOrder = async (req, res) => {
     const { orderId } = req.params;
