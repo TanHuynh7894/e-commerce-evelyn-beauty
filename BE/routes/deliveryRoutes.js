@@ -22,6 +22,24 @@ router.post(
   deliveryController.calculateFeeFromProfile
 );
 
+// Tính phí vận chuyển từ address (test calculateFeeFromProfileV2)
+router.post("/calculate-fee-v2", verifyToken, async (req, res) => {
+  try {
+    const { address, weight, length, width, height } = req.body;
+    if (!address)
+      return res.status(400).json({ success: false, message: "Thiếu address" });
+    const data = await deliveryController.calculateFeeFromProfileV2(address, {
+      weight,
+      length,
+      width,
+      height,
+    });
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Tạo đơn hàng GHN
 router.post(
   "/create-order-ghn-from-order",
