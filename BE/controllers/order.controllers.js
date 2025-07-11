@@ -1,35 +1,77 @@
 const { Order, OrderDetail, Product } = require('../models');
 const { nanoid } = require('nanoid');
 
+//  Tách hàm tái sử dụng để gọi từ cả createOrder và webhook
+exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId }) => {
+    const orderId = 'OD' + Date.now();
+
+    const newOrder = await Order.create({
+        orderId,
+        programId,
+        shipFee,
+        date: new Date(),
+        status: 'in_transit',
+        accountId,
+        paymentId,
+        profileId
+    });
+
+    const details = items.map((i, index) => ({
+        orderDetailId: `OD${Date.now()}${index}`,
+        orderId,
+        productId: i.productId,
+        quantity: i.quantity
+    }));
+
+    await OrderDetail.bulkCreate(details);
+    return orderId;
+};
+
+// API tạo order (gọi từ FE checkout bình thường)
 exports.createOrder = async (req, res) => {
-    const { shipFee, programId, paymentId, profileId, items } = req.body; // items: [{ productId, quantity }]
+    const { shipFee, programId, paymentId, profileId, items } = req.body;
     const accountId = req.user.accountId;
 
     try {
-        const orderId = 'OD' + Date.now();
-        const newOrder = await Order.create({
-            orderId,
-            programId,
+        const orderId = await exports.createOrderInternal({
             shipFee,
-            date: new Date(),
-            status: 'in_transit',
-            accountId,
+            programId,
             paymentId,
-            profileId
+            profileId,
+            items,
+            accountId
         });
-
-        const details = items.map(i => ({
-            orderDetailId: nanoid(20),
-            orderId,
-            productId: i.productId,
-            quantity: i.quantity
-        }));
-        await OrderDetail.bulkCreate(details);
 
         res.status(201).json({ message: 'Tạo đơn hàng thành công', orderId });
     } catch (err) {
         console.error('Lỗi tạo order:', err);
         res.status(500).json({ message: 'Tạo đơn hàng thất bại' });
+    }
+};
+
+// Mua ngay 1 sản phẩm (không qua giỏ hàng)
+exports.buyNow = async (req, res) => {
+    const { productId, paymentId, profileId, programId, shipFee } = req.body;
+    const accountId = req.user.accountId;
+
+    try {
+        if (!productId || !paymentId || !profileId || !programId) {
+            return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' });
+        }
+
+        const orderId = await exports.createOrderInternal({
+            shipFee: shipFee || 0,
+            programId,
+            paymentId,
+            profileId,
+            accountId,
+            items: [{ productId, quantity: 1 }]
+        });
+
+        res.status(201).json({ message: 'Mua ngay thành công', orderId });
+    } catch (error) {
+        console.error('Buy Now Error:', error);
+        res.status(500).json({ message: 'Không thể thực hiện mua ngay' });
     }
 };
 
@@ -135,47 +177,3 @@ exports.cancelOrder = async (req, res) => {
         res.status(500).json({ message: 'Không thể hủy đơn hàng' });
     }
 };
-
-exports.buyNow = async (req, res) => {
-  const { productId, paymentId, profileId, programId, shipFee } = req.body;
-  const accountId = req.user.accountId;
-
-  try {
-    const orderId = 'OD' + Date.now();
-
-    // Bắt buộc các field này phải có do allowNull: false
-    if (!productId || !paymentId || !profileId || !programId) {
-      return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' });
-    }
-
-    // Tạo đơn hàng
-    const newOrder = await Order.create({
-      orderId,
-      accountId,
-      date: new Date(),
-      status: 'in_transit',
-      programId,
-      paymentId,
-      profileId,
-      shipFee: shipFee || 0,
-    });
-
-    // Tạo chi tiết đơn hàng
-    await OrderDetail.create({
-      orderDetailId: require('nanoid').nanoid(20),
-      orderId,
-      productId,
-      quantity: 1,
-    });
-
-    res.status(201).json({
-      message: 'Mua ngay thành công',
-      orderId,
-    });
-  } catch (error) {
-    console.error('Buy Now Error:', error);
-    res.status(500).json({ message: 'Không thể thực hiện mua ngay' });
-  }
-};
-
-
