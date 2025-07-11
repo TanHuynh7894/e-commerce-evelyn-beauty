@@ -91,7 +91,7 @@ const deleteOrderDetail = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Không tìm thấy chi tiết đơn hàng" });
-    res.json({ message: "Xóa chi tiết đơn hàng thành công" });
+res.json({ message: "Xóa chi tiết đơn hàng thành công" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
