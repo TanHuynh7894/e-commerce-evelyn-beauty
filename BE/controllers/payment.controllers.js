@@ -119,7 +119,7 @@ exports.handlePayOSWebhook = async (req, res) => {
   const { orderCode, status, transactionId, accountId } = req.body;
 
   try {
-    const payment = await Payment.findByPk('PM' + orderCode); // Do paymentId là 'PM' + orderCode
+    const payment = await Payment.findByPk(orderCode); // Do paymentId là 'PM' + orderCode
     if (!payment) return res.sendStatus(404);
 
     const existingOrder = await Order.findOne({ where: { paymentId: 'PM' + orderCode } });
@@ -146,7 +146,7 @@ exports.handlePayOSWebhook = async (req, res) => {
         accountId: cart.accountId,
         paymentId: payment.paymentId,
         date: new Date(),
-        programId: null,
+        programId: 'PG002',
         profileId: profile.profileId
       });
 
