@@ -152,7 +152,7 @@ exports.handlePayOSWebhook = async (req, res) => {
 
       await OrderDetail.bulkCreate(
         items.map(i => ({
-          orderDetailId: uuidv4().slice(0, 20),
+          orderDetailId:`OD${Date.now()}${index}`,
           orderId,
           productId: i.productId,
           quantity: i.quantity
