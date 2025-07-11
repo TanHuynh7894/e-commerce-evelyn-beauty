@@ -1,12 +1,24 @@
 const { OrderDetail } = require("../models");
+// Hàm internal (dùng ở đâu cũng được)
+exports.createOrderDetailInternal = async ({ productId, classificationId, orderId, quantity }) => {
+  const orderDetailId = "OT" + Date.now();
+  const newOrderDetail = await OrderDetail.create({
+    orderDetailId,
+    productId,
+    classificationId,
+    orderId,
+    quantity,
+  });
+  return newOrderDetail;
+};
 
-// Tạo mới orderDetail
+// Controller dùng cho API, gọi lại hàm internal
+const { createOrderDetailInternal } = require('./orderDetail.controllers'); // Nếu tách file, còn cùng file thì không cần import
+
 const createOrderDetail = async (req, res) => {
   try {
     const { productId, classificationId, orderId, quantity } = req.body;
-    const orderDetailId = "OT" + Date.now();
-    const newOrderDetail = await OrderDetail.create({
-      orderDetailId,
+    const newOrderDetail = await exports.createOrderDetailInternal({
       productId,
       classificationId,
       orderId,
