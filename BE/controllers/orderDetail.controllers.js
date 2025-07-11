@@ -1,5 +1,5 @@
 const { OrderDetail } = require("../models");
-// Tạo mới orderDetail dùng nội bộ, không req/res
+// Hàm internal (dùng ở đâu cũng được)
 exports.createOrderDetailInternal = async ({ productId, classificationId, orderId, quantity }) => {
   const orderDetailId = "OT" + Date.now();
   const newOrderDetail = await OrderDetail.create({
@@ -11,13 +11,14 @@ exports.createOrderDetailInternal = async ({ productId, classificationId, orderI
   });
   return newOrderDetail;
 };
-// Tạo mới orderDetail
+
+// Controller dùng cho API, gọi lại hàm internal
+const { createOrderDetailInternal } = require('./orderDetail.controllers'); // Nếu tách file, còn cùng file thì không cần import
+
 const createOrderDetail = async (req, res) => {
   try {
     const { productId, classificationId, orderId, quantity } = req.body;
-    const orderDetailId = "OT" + Date.now();
-    const newOrderDetail = await OrderDetail.create({
-      orderDetailId,
+    const newOrderDetail = await exports.createOrderDetailInternal({
       productId,
       classificationId,
       orderId,
@@ -90,9 +91,9 @@ const deleteOrderDetail = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Không tìm thấy chi tiết đơn hàng" });
-    res.json({ message: "Xóa chi tiết đơn hàng thành công" });
+res.json({ message: "Xóa chi tiết đơn hàng thành công" });
   } catch (error) {
-res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
