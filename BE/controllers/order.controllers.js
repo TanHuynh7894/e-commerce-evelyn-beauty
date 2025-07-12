@@ -2,8 +2,8 @@ const { Order, OrderDetail, Product } = require('../models');
 const { nanoid } = require('nanoid');
 
 //  Tách hàm tái sử dụng để gọi từ cả createOrder và webhook
-exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId }) => {
-    const orderId = 'OD' + Date.now();
+exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId ,orderId: customOrderId}) => {
+    const orderId = customOrderId || ('OD' + Date.now());
 
     const newOrder = await Order.create({
         orderId,
@@ -16,8 +16,10 @@ exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId,
         profileId
     });
 
+    const now = Date.now();
+
     const details = items.map((i, index) => ({
-        orderDetailId: `OD${Date.now()}${index}`,
+        orderDetailId: `OD${now}${index}`, 
         orderId,
         productId: i.productId,
         quantity: i.quantity

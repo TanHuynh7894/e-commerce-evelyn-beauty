@@ -8,7 +8,7 @@ const Payment = sequelize.define('Payment', {
     field: 'payment_id',
   },
   transactionNo: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.STRING(20),
     field: 'transaction_no',
   }
   }, {

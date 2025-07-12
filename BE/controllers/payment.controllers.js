@@ -1,13 +1,4 @@
-const {
-  Payment,
-  Order,
-  OrderDetail,
-  Cart,
-  CartItem,
-  Product,
-  PromotionProgram,
-  Profile,
-} = require("../models");
+const { Payment, Order, OrderDetail, Cart, CartItem, Product, PromotionProgram, Profile, } = require("../models");
 const { v4: uuidv4 } = require("uuid");
 const moment = require("moment");
 const { Op } = require("sequelize");
@@ -15,12 +6,8 @@ const crypto = require("crypto");
 const PayOS = require("@payos/node"); //  Dùng SDK
 require("dotenv").config();
 const { createOrderInternal } = require("../controllers/order.controllers");
-const {
-  calculateFeeFromProfileV2,
-} = require("../controllers/delivery.controllers");
-const {
-  createOrderDetailInternal,
-} = require("../controllers/orderDetail.controllers");
+const { calculateFeeFromProfileV2 } = require("../controllers/delivery.controllers");
+const { createOrderDetailInternal } = require("../controllers/orderDetail.controllers");
 
 const payOS = new PayOS(
   process.env.PAYOS_CLIENT_ID,
@@ -168,67 +155,90 @@ exports.createPayOSLink = async (req, res) => {
 };
 
 // Webhook xử lý thanh toán
+// Flow: Handle PayOS webhook, get accountId from Profile (via ProfileId in Order), process order
 exports.handlePayOSWebhook = async (req, res) => {
-  const { orderCode, status, transactionId, accountId } = req.query;
-
   try {
-    const payment = await Payment.findByPk(orderCode); // Do paymentId là 'PM' + orderCode
-    if (!payment) return res.sendStatus(404);
+    console.log("\n===== Webhook PayOS Nhận =====");
+    console.log("Payload Body:", req.body);
 
-    const existingOrder = await Order.findOne({
-      where: { paymentId: orderCode },
-    });
-    if (status === "PAID" && existingOrder) {
-      payment.transactionNo = transactionId || 0;
-      await payment.save();
+    const { data } = req.body;
+    const rawOrderCode = data?.orderCode;
+    const paymentId = 'PM' + rawOrderCode;
+    const transactionId = data?.reference;
+    const status = req.body?.code === "00" ? "PAID" : "FAILED";
 
-      const cart = await Cart.findOne({
-        where: { accountId },
-        attributes: ["cartId", "accountId"],
-      });
-      if (!cart) return res.sendStatus(404);
-
-      const profile = await Profile.findOne({ where: { accountId } });
-      if (!profile)
-        return res.status(400).json({ message: "Không tìm thấy profile" });
-
-      const cartItems = await CartItem.findAll({
-        where: { cartId: cart.cartId },
-        include: [{ model: Product, as: "product", attributes: ["productId"] }],
-      });
-
-      if (cartItems.length === 0) return res.sendStatus(400);
-
-      const items = cartItems.map((i) => ({
-        productId: i.productId,
-        quantity: i.quantity,
-      }));
-
-      const orderId = await createOrderInternal({
-        shipFee: 0, // hoặc lấy shipFee từ cart nếu có logic lưu
-        programId: payment.programId,
-        paymentId: payment.paymentId,
-        profileId: profile.profileId,
-        accountId,
-        items,
-      });
-
-      // Gọi createOrderDetailInternal cho từng item (nếu cần phân loại riêng)
-      for (const item of items) {
-        await createOrderDetailInternal({
-          productId: item.productId,
-          classificationId: null, // Nếu có classificationId thì truyền vào
-          orderId,
-          quantity: item.quantity,
-        });
-      }
-
-      await CartItem.destroy({ where: { cartId: cart.cartId } });
+    // 1. Tìm payment theo paymentId
+    const payment = await Payment.findByPk(paymentId);
+    if (!payment) {
+      return res.sendStatus(404);
     }
 
-    res.sendStatus(200);
-  } catch (err) {
-    console.error("Webhook lỗi:", err);
-    res.sendStatus(500);
+    // 2. Cập nhật transactionId
+    payment.transactionNo = transactionId || 0;
+    await payment.save();
+
+    // 3. Kiểm tra đã có order chưa
+    const existingOrder = await Order.findOne({
+      where: { paymentId },
+    });
+
+    if (existingOrder) {
+      return res.sendStatus(200);
+    }
+
+    // 4. Truy accountId qua profile từ payment.profileId
+    const profile = await Profile.findByPk(payment.profileId);
+    if (!profile) {
+      return res.status(400).json({ message: "Không tìm thấy profile" });
+    }
+
+    const accountIdFromDB = profile.accountId;
+
+    // 5. Tìm cart theo accountId
+    const cart = await Cart.findOne({ where: { accountId: accountIdFromDB } });
+    if (!cart) return res.status(404).json({ message: "Không tìm thấy giỏ hàng" });
+
+    // 6. Tìm sản phẩm trong cart
+    const cartItems = await CartItem.findAll({
+      where: { cartId: cart.cartId },
+      include: [{ model: Product, as: "product", attributes: ["productId"] }]
+    });
+
+    if (!cartItems.length) return res.status(400).json({ message: "Giỏ hàng trống" });
+
+    const items = cartItems.map((item) => ({
+      productId: item.productId,
+      classificationId: item.classificationId,
+      quantity: item.quantity,
+    }));
+
+    const orderId = 'OD' + rawOrderCode;
+
+    const createdOrderId = await createOrderInternal({
+      orderId,
+      shipFee: 0,
+      programId: payment.programId,
+      paymentId: payment.paymentId,
+      profileId: profile.profileId,
+      accountId: accountIdFromDB,
+      items,
+    });
+
+    for (const item of items) {
+      await createOrderDetailInternal({
+        productId: item.productId,
+        classificationId: item.classificationId,
+        orderId: createdOrderId,
+        quantity: item.quantity,
+      });
+    }
+
+    await CartItem.update({ status: "OFF" }, { where: { cartId: cart.cartId } });
+
+    console.log("\nHoàn tất xử lý webhook và tạo đơn hàng thành công");
+    return res.sendStatus(200);
+  } catch (error) {
+    console.log("Lỗi xử lý webhook:", error);
+    return res.sendStatus(500);
   }
 };
