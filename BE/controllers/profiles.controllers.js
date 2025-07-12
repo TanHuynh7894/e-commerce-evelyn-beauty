@@ -65,6 +65,60 @@ const createProfile = async (req, res) => {
     const { accountId } = req.user;
     const { name, phone, address, gender, birthday, image } = req.body;
 
+    // Kiểm tra các trường bắt buộc
+    if (!name || name.trim() === "") {
+      return res.status(400).json({
+        message: "Tên không được để trống",
+      });
+    }
+
+    if (!phone || phone.trim() === "") {
+      return res.status(400).json({
+        message: "Số điện thoại không được để trống",
+      });
+    }
+
+    if (!address || address.trim() === "") {
+      return res.status(400).json({
+        message: "Địa chỉ không được để trống",
+      });
+    }
+
+    // Kiểm tra địa chỉ phải có đầy đủ thông tin
+    // Tách địa chỉ, bỏ qua các phần rỗng do nhập thừa dấu phẩy hoặc khoảng trắng
+    const addressParts = address
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    // Danh sách các trường bắt buộc (phù hợp thực tế VN hiện tại)
+    const addressFields = [
+      { key: "street", label: "Tên đường" },
+      { key: "ward", label: "Phường/Xã" },
+      { key: "district", label: "Quận/Huyện/Thành phố thuộc tỉnh" },
+      { key: "province", label: "Tỉnh/Thành" },
+    ];
+
+    if (addressParts.length < addressFields.length) {
+      return res.status(400).json({
+        message:
+          "Địa chỉ phải có đầy đủ: Tên đường, Phường/Xã, Quận/Huyện/Thành phố thuộc tỉnh, Tỉnh/Thành",
+        example:
+          "135 Đường Lê Văn Việt, Phường Long Thạnh Mỹ, Thành phố Thủ Đức, TP. Hồ Chí Minh",
+      });
+    }
+
+    // Kiểm tra từng phần của địa chỉ
+    for (let i = 0; i < addressFields.length; i++) {
+      if (!addressParts[i] || addressParts[i] === "") {
+        return res.status(400).json({
+          message: `${addressFields[i].label} không được để trống`,
+        });
+      }
+    }
+
+    // (Đã xóa kiểm tra chỉ cho phép 1 profile/account, giờ 1 account có thể tạo nhiều profile)
+
     // Tạo profileId mới
     const profileId = "PF" + Date.now();
 
@@ -72,9 +126,9 @@ const createProfile = async (req, res) => {
     const newProfile = await Profile.create({
       profileId,
       accountId,
-      name,
-      phone,
-      address,
+      name: name.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
       gender,
       birthday,
       image,
