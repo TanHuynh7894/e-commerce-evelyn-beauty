@@ -1,13 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const orderDetailController = require("../controllers/orderDetail.controllers");
-const {
-  validateOrderDetail,
-  logOrderDetailRequest,
-} = require("../middlewares/orderDetail.middlewares");
+const {logOrderDetailRequest,} = require("../middlewares/orderDetail.middlewares");
 const { verifyToken, requireRole } = require("../middlewares/auth");
 
-// Tạo mới orderDetail
+// // Tạo mới orderDetail
 // router.post(
 //   "/",
 //   verifyToken,
@@ -16,7 +13,7 @@ const { verifyToken, requireRole } = require("../middlewares/auth");
 //   validateOrderDetail,
 //   orderDetailController.createOrderDetail
 // );
-// Lấy tất cả orderDetail theo orderId (bằng body)
+// // Lấy tất cả orderDetail theo orderId (bằng body)
 // router.post(
 //   "/get-all",
 //   verifyToken,
@@ -33,7 +30,7 @@ const { verifyToken, requireRole } = require("../middlewares/auth");
 //   orderDetailController.getOrderDetailById
 // );
 // Cập nhật orderDetail (bằng body)
-router.post(
+router.put(
   "/update",
   verifyToken,
   requireRole("CU"),

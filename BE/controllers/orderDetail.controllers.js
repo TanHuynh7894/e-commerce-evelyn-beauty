@@ -1,4 +1,4 @@
-const { OrderDetail } = require("../models");
+const { OrderDetail, Order } = require("../models");
 // Hàm internal (dùng ở đâu cũng được)
 // Controller dùng cho API, gọi lại hàm internal
 // const { createOrderDetailInternal } = require('./orderDetail.controllers'); // Nếu tách file, còn cùng file thì không cần import
@@ -18,7 +18,7 @@ const createOrderDetailInternal = async ({ productId, classificationId, orderId,
 // const createOrderDetail = async (req, res) => {
 //   try {
 //     const { productId, classificationId, orderId, quantity } = req.body;
-//     const newOrderDetail = await exports.createOrderDetailInternal({
+//     const newOrderDetail = await createOrderDetailInternal({
 //       productId,
 //       classificationId,
 //       orderId,
@@ -30,12 +30,21 @@ const createOrderDetailInternal = async ({ productId, classificationId, orderId,
 //   }
 // };
 
-// Lấy tất cả orderDetail
+// // Lấy tất cả orderDetail
 // const getAllOrderDetails = async (req, res) => {
 //   try {
 //     const { orderId } = req.body;
+//     const accountId = req.user.accountId; // Lấy accountId từ middleware xác thực
+
 //     if (!orderId)
 //       return res.status(400).json({ message: "Vui lòng cung cấp orderId!" });
+
+//     // Kiểm tra orderId có thuộc về accountId không
+//     const order = await Order.findOne({ where: { orderId, accountId } });
+//     if (!order) {
+//       return res.status(403).json({ message: "Bạn không có quyền xem đơn hàng này!" });
+//     }
+
 //     const orderDetails = await OrderDetail.findAll({ where: { orderId } });
 //     res.json(orderDetails);
 //   } catch (error) {
@@ -43,7 +52,7 @@ const createOrderDetailInternal = async ({ productId, classificationId, orderId,
 //   }
 // };
 
-// Lấy orderDetail theo id
+// // Lấy orderDetail theo id
 // const getOrderDetailById = async (req, res) => {
 //   try {
 //     const { id } = req.body;
@@ -62,6 +71,32 @@ const createOrderDetailInternal = async ({ productId, classificationId, orderId,
 const updateOrderDetail = async (req, res) => {
   try {
     const { id, comment, rate, imageEvaluate } = req.body;
+    const accountId = req.user.accountId; // Lấy accountId từ middleware xác thực
+
+    // Tìm orderDetail và lấy orderId
+    const orderDetail = await OrderDetail.findByPk(id);
+    if (!orderDetail) {
+      return res.status(404).json({ message: "Không tìm thấy chi tiết đơn hàng" });
+    }
+
+    // Lấy order liên quan
+    const order = await Order.findOne({ where: { orderId: orderDetail.orderId } });
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng liên quan" });
+    }
+
+    // Lấy profile liên quan
+    const { Profile } = require("../models");
+    const profile = await Profile.findOne({ where: { profileId: order.profileId } });
+    if (!profile) {
+      return res.status(404).json({ message: "Không tìm thấy profile của khách hàng" });
+    }
+
+    // Kiểm tra accountId của profile có trùng với accountId đăng nhập không
+    if (profile.accountId !== accountId) {
+      return res.status(403).json({ message: "Bạn không có quyền cập nhật chi tiết đơn hàng này!" });
+    }
+
     // Chỉ cập nhật các trường có giá trị
     const updateData = {};
     if (comment !== undefined) updateData.comment = comment;
