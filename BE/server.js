@@ -18,7 +18,6 @@ const classificationForProductRoutes = require("./routes/classificationForProduc
 const orderRoutes = require("./routes/orderRoutes");
 const orderDetailRoutes = require("./routes/orderDetailRoutes");
 const deliveryRoutes = require("./routes/deliveryRoutes");
-const deliveryRoutes = require("./routes/deliveryRoutes");
 const checkoutRoutes = require("./routes/checkoutRoutes");
 const paymentRoute = require("./routes/paymentRoutes");
 
