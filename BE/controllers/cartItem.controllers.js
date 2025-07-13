@@ -136,11 +136,15 @@ exports.updateCartItem = async (req, res) => {
 exports.deleteCartItem = async (req, res) => {
   const { cartId, productId, classificationId } = req.body;
   try {
+    // Kiểm tra quyền sở hữu cart
+    const cart = await Cart.findOne({ where: { cartId } });
+    if (!cart || cart.accountId !== req.user.accountId) {
+      return res.status(403).json({ message: "Bạn không có quyền xóa cart item này!" });
+    }
     const cartItem = await CartItem.findOne({ where: { cartId, productId, classificationId } });
     if (!cartItem) return res.status(404).json({ message: "Không tìm thấy cart item để xóa" });
-    cartItem.status = 'OFF';
-    await cartItem.save();
-    res.json({ message: "Sản phẩm đã được ẩn khỏi giỏ hàng của bạn." });
+    await cartItem.destroy();
+    res.json({ message: "Sản phẩm đã được xóa khỏi giỏ hàng của bạn." });
   } catch (error) {
     res.status(500).json({ message: "Lỗi server khi xóa cart item", error });
   }
