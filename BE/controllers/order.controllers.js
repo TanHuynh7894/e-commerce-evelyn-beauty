@@ -2,7 +2,7 @@ const { Order, OrderDetail, Product } = require('../models');
 const { nanoid } = require('nanoid');
 
 //  Tách hàm tái sử dụng để gọi từ cả createOrder và webhook
-exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId ,orderId: customOrderId}) => {
+exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId, orderId: customOrderId }) => {
     const orderId = customOrderId || ('OD' + Date.now());
 
     const newOrder = await Order.create({
@@ -15,17 +15,6 @@ exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId,
         paymentId,
         profileId
     });
-
-    const now = Date.now();
-
-    const details = items.map((i, index) => ({
-        orderDetailId: `OD${now}${index}`, 
-        orderId,
-        productId: i.productId,
-        quantity: i.quantity
-    }));
-
-    await OrderDetail.bulkCreate(details);
     return orderId;
 };
 
@@ -43,6 +32,17 @@ exports.createOrder = async (req, res) => {
             items,
             accountId
         });
+
+        const now = Date.now();
+        const details = items.map((i, index) => ({
+            orderDetailId: `OD${now}${index}`,
+            orderId,
+            productId: i.productId,
+            classificationId: i.classificationId,
+            quantity: i.quantity
+        }));
+
+        await OrderDetail.bulkCreate(details);
 
         res.status(201).json({ message: 'Tạo đơn hàng thành công', orderId });
     } catch (err) {
