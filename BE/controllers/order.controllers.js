@@ -3,7 +3,7 @@ const { nanoid } = require('nanoid');
 
 //  Tách hàm tái sử dụng để gọi từ cả createOrder và webhook
 exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId, orderId: customOrderId }) => {
-    const orderId = customOrderId || ('OD' + Date.now());
+    const orderId = customOrderId ;
 
     const newOrder = await Order.create({
         orderId,
@@ -19,63 +19,63 @@ exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId,
 };
 
 // API tạo order (gọi từ FE checkout bình thường)
-exports.createOrder = async (req, res) => {
-    const { shipFee, programId, paymentId, profileId, items } = req.body;
-    const accountId = req.user.accountId;
+// exports.createOrder = async (req, res) => {
+//     const { shipFee, programId, paymentId, profileId, items } = req.body;
+//     const accountId = req.user.accountId;
 
-    try {
-        const orderId = await exports.createOrderInternal({
-            shipFee,
-            programId,
-            paymentId,
-            profileId,
-            items,
-            accountId
-        });
+//     try {
+//         const orderId = await exports.createOrderInternal({
+//             shipFee,
+//             programId,
+//             paymentId,
+//             profileId,
+//             items,
+//             accountId
+//         });
 
-        const now = Date.now();
-        const details = items.map((i, index) => ({
-            orderDetailId: `OD${now}${index}`,
-            orderId,
-            productId: i.productId,
-            classificationId: i.classificationId,
-            quantity: i.quantity
-        }));
+//         const now = Date.now();
+//         const details = items.map((i, index) => ({
+//             orderDetailId: `OD${now}${index}`,
+//             orderId,
+//             productId: i.productId,
+//             classificationId: i.classificationId,
+//             quantity: i.quantity
+//         }));
 
-        await OrderDetail.bulkCreate(details);
+//         await OrderDetail.bulkCreate(details);
 
-        res.status(201).json({ message: 'Tạo đơn hàng thành công', orderId });
-    } catch (err) {
-        console.error('Lỗi tạo order:', err);
-        res.status(500).json({ message: 'Tạo đơn hàng thất bại' });
-    }
-};
+//         res.status(201).json({ message: 'Tạo đơn hàng thành công', orderId });
+//     } catch (err) {
+//         console.error('Lỗi tạo order:', err);
+//         res.status(500).json({ message: 'Tạo đơn hàng thất bại' });
+//     }
+// };
 
 // Mua ngay 1 sản phẩm (không qua giỏ hàng)
-exports.buyNow = async (req, res) => {
-    const { productId, paymentId, profileId, programId, shipFee } = req.body;
-    const accountId = req.user.accountId;
+// exports.buyNow = async (req, res) => {
+//     const { productId, paymentId, profileId, programId, shipFee } = req.body;
+//     const accountId = req.user.accountId;
 
-    try {
-        if (!productId || !paymentId || !profileId || !programId) {
-            return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' });
-        }
+//     try {
+//         if (!productId || !paymentId || !profileId || !programId) {
+//             return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' });
+//         }
 
-        const orderId = await exports.createOrderInternal({
-            shipFee: shipFee || 0,
-            programId,
-            paymentId,
-            profileId,
-            accountId,
-            items: [{ productId, quantity: 1 }]
-        });
+//         const orderId = await exports.createOrderInternal({
+//             shipFee: shipFee || 0,
+//             programId,
+//             paymentId,
+//             profileId,
+//             accountId,
+//             items: [{ productId, quantity: 1 }]
+//         });
 
-        res.status(201).json({ message: 'Mua ngay thành công', orderId });
-    } catch (error) {
-        console.error('Buy Now Error:', error);
-        res.status(500).json({ message: 'Không thể thực hiện mua ngay' });
-    }
-};
+//         res.status(201).json({ message: 'Mua ngay thành công', orderId });
+//     } catch (error) {
+//         console.error('Buy Now Error:', error);
+//         res.status(500).json({ message: 'Không thể thực hiện mua ngay' });
+//     }
+// };
 
 exports.getCustomerOrders = async (req, res) => {
     try {

@@ -4,7 +4,7 @@ const orderController = require('../controllers/order.controllers');
 const { verifyToken, requireRole , logDbAccess } = require('../middlewares/auth');
 
 // Chỉ Customer được phép tạo order
-router.post('/', verifyToken, requireRole('CU'), orderController.createOrder);
+// router.post('/', verifyToken, requireRole('CU'), orderController.createOrder);
 
 // Customer chỉ xem được đơn hàng của mình
 router.get('/my-orders', verifyToken, requireRole('CU'), orderController.getCustomerOrders);
@@ -19,7 +19,7 @@ router.put('/:orderId', verifyToken, requireRole('SF', 'OS'), logDbAccess, order
 router.post("/cancel/:orderId", verifyToken, requireRole("CU"), orderController.cancelOrder);
 
 // Chỉ Customer được phép mua ngay (buy now)
-router.post('/buy-now', verifyToken, requireRole("CU"), orderController.buyNow);
+//router.post('/buy-now', verifyToken, requireRole("CU"), orderController.buyNow);
 
 //lấy thông tin giao hàng
 // router.get('/', verifyToken, orderController.getDeliveryAddress);

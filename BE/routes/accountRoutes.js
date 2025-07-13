@@ -1,12 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const accountController = require("../controllers/accounts.controllers");
-const {
-  verifyToken,
-  requireRole,
-  validatePassword,
-  validateEmail,
-} = require("../middlewares/auth");
+const {verifyToken,requireRole,validatePassword,validateEmail,} = require("../middlewares/auth");
 const passport = require("../auth/passport");
 const {
   createAccountWithOtp,
@@ -87,21 +82,10 @@ router.get(
   }
 );
 
-router.post(
-  "/create",
-  verifyToken,
-  validateEmail,
-  validatePassword,
-  requireRole("OS"),
-  createAccountWithOtp
-);
+router.post("/create",verifyToken,validateEmail,validatePassword,requireRole("OS"),createAccountWithOtp);
+router.post("/verify-otp-account",validateEmail, accountController.verifyAdminOtpOnly);
 router.get("/all", verifyToken, requireRole("OS"), getAllAccounts);
 router.put("/update/:accountId", verifyToken, requireRole("OS"), updateAccount);
-router.delete(
-  "/delete/:accountId",
-  verifyToken,
-  requireRole("OS"),
-  deleteAccount
-);
+router.delete("/delete/:accountId",verifyToken,requireRole("OS"),deleteAccount);
 
 module.exports = router;
