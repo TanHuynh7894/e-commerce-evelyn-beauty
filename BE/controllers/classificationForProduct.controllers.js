@@ -68,18 +68,38 @@ const addClassificationProduct = async (req, res) => {
 // Cập nhật quantity cho classification-product
 const updateClassificationProduct = async (req, res) => {
   try {
-    const { classificationId, productId, quantity } = req.body;
+    // Loại bỏ khoảng trắng thừa
+    let { classificationId, productId, quantity } = req.body;
+    if (typeof classificationId === "string")
+      classificationId = classificationId.trim();
+    if (typeof productId === "string") productId = productId.trim();
+    // Nếu quantity là string thì thử chuyển sang số
+    if (typeof quantity === "string") {
+      // Chặn trường hợp nhập chữ hoặc ký tự đặc biệt
+      if (!/^-?\d+$/.test(quantity.trim())) {
+        return res.status(400).json({
+          success: false,
+          message: "Quantity phải là số nguyên không âm",
+        });
+      }
+      quantity = Number(quantity);
+    }
     if (!classificationId || !productId) {
       return res.status(400).json({
         success: false,
         message: "Thiếu classificationId hoặc productId",
       });
     }
-    // Chặn quantity âm
-    if (typeof quantity !== "number" || quantity < 0) {
+    // Chặn quantity không phải số nguyên không âm
+    if (
+      typeof quantity !== "number" ||
+      isNaN(quantity) ||
+      quantity < 0 ||
+      !Number.isInteger(quantity)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Quantity phải là số không âm",
+        message: "Quantity phải là số nguyên không âm",
       });
     }
     // Kiểm tra liên kết tồn tại
