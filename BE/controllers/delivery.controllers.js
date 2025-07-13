@@ -638,3 +638,152 @@ module.exports = {
     }
   },
 };
+
+// =====================
+// Hàm thuần: Tính phí vận chuyển từ address (không dùng req/res)
+async function calculateFeeFromProfileV2(
+  address,
+  { weight = 500, length = 10, width = 10, height = 10 } = {}
+) {
+  // Helper functions
+  function parseAddressByComma(address) {
+    const parts = address
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const n = parts.length;
+    return {
+      detail: parts[0] || "",
+      ward: parts[n - 3] || "",
+      district: parts[n - 2] || "",
+      province: parts[n - 1] || "",
+    };
+  }
+  function removeVietnameseTones(str) {
+    return str
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  const PROVINCE_ALIASES = {
+    "thanh pho hcm": "ho chi minh",
+    "tp hcm": "ho chi minh",
+    tphcm: "ho chi minh",
+    hcm: "ho chi minh",
+    "tp ho chi minh": "ho chi minh",
+    "thanh pho ho chi minh": "ho chi minh",
+    hn: "ha noi",
+    "tp ha noi": "ha noi",
+    "thanh pho ha noi": "ha noi",
+  };
+  function normalizeText(str) {
+    if (!str) return "";
+    str = removeVietnameseTones(str)
+      .toLowerCase()
+      .replace(/^(tp|tinh|thanh pho|quan|huyen|thi xa|phuong|xa)\.?\s*/gi, "")
+      .replace(/\./g, "")
+      .replace(/[\s,-]+/g, " ")
+      .trim();
+    return PROVINCE_ALIASES[str] || str;
+  }
+
+  const parsed = parseAddressByComma(address);
+  if (!parsed.province || !parsed.district || !parsed.ward) {
+    throw new Error("Địa chỉ phải có đủ tỉnh/thành, quận/huyện, phường/xã!");
+  }
+
+  // 1. Tìm province
+  const provincesRes = await ghn.get("/master-data/province");
+  const provinces = provincesRes.data.data;
+  const parsedProvinceNorm = normalizeText(parsed.province);
+  let province = provinces.find((p) => {
+    const pNorm = normalizeText(p.ProvinceName);
+    return (
+      pNorm === parsedProvinceNorm ||
+      pNorm.includes(parsedProvinceNorm) ||
+      parsedProvinceNorm.includes(pNorm)
+    );
+  });
+  if (!province) {
+    const alias = PROVINCE_ALIASES[parsedProvinceNorm];
+    if (alias) {
+      province = provinces.find((p) => normalizeText(p.ProvinceName) === alias);
+    }
+  }
+  if (!province) {
+    throw new Error("Không tìm thấy tỉnh/thành phù hợp với địa chỉ!");
+  }
+
+  // 2. Tìm district
+  const districtsRes = await ghn.post("/master-data/district", {
+    province_id: province.ProvinceID,
+  });
+  const districts = districtsRes.data.data;
+  const parsedDistrictNorm = normalizeText(parsed.district).replace(
+    "thanh pho ",
+    ""
+  );
+  const district = districts.find((d) => {
+    const dNorm = normalizeText(d.DistrictName);
+    return (
+      dNorm === parsedDistrictNorm ||
+      dNorm.includes(parsedDistrictNorm) ||
+      parsedDistrictNorm.includes(dNorm) ||
+      dNorm.startsWith(parsedDistrictNorm.slice(0, 5))
+    );
+  });
+  if (!district) {
+    throw new Error("Không tìm thấy quận/huyện phù hợp với địa chỉ!");
+  }
+
+  // 3. Tìm ward
+  const wardsRes = await ghn.post("/master-data/ward", {
+    district_id: district.DistrictID,
+  });
+  const wards = wardsRes.data.data;
+  const parsedWardNorm = normalizeText(parsed.ward);
+  const ward = wards.find((w) => {
+    const wNorm = normalizeText(w.WardName);
+    return (
+      wNorm === parsedWardNorm ||
+      wNorm.includes(parsedWardNorm) ||
+      parsedWardNorm.includes(wNorm)
+    );
+  });
+  if (!ward) {
+    throw new Error("Không tìm thấy phường/xã phù hợp với địa chỉ!");
+  }
+
+  // 4. Lấy dịch vụ giao hàng
+  const availableServicesRes = await ghn.post(
+    "/v2/shipping-order/available-services",
+    {
+      shop_id: parseInt(process.env.GHN_SHOP_ID),
+      from_district: 1454,
+      to_district: district.DistrictID,
+    }
+  );
+  const services = availableServicesRes.data.data;
+  if (!services || services.length === 0)
+    throw new Error("Không có dịch vụ giao hàng phù hợp");
+  const service_id = services[0].service_id;
+
+  // 5. Gọi tính phí tiền
+  const feeRes = await ghn.post("/v2/shipping-order/fee", {
+    service_id,
+    insurance_value: 1000000,
+    from_district_id: 1454,
+    to_district_id: district.DistrictID,
+    to_ward_code: ward.WardCode,
+    weight,
+    length,
+    width,
+    height,
+  });
+  return feeRes.data.data;
+}
+
+module.exports.calculateFeeFromProfileV2 = calculateFeeFromProfileV2;

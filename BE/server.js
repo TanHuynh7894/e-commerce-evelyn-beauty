@@ -18,10 +18,15 @@ const classificationForProductRoutes = require("./routes/classificationForProduc
 const orderRoutes = require("./routes/orderRoutes");
 const orderDetailRoutes = require("./routes/orderDetailRoutes");
 const deliveryRoutes = require("./routes/deliveryRoutes");
+const deliveryRoutes = require("./routes/deliveryRoutes");
+const checkoutRoutes = require("./routes/checkoutRoutes");
+const paymentRoute = require("./routes/paymentRoutes");
+
 dotenv.config();
 
 const app = express();
 app.use(cors());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // Session setup (cho Google OAuth nếu dùng)
@@ -85,6 +90,12 @@ app.use("/api/order-details", orderDetailRoutes);
 
 //Route cho delivery
 app.use("/api/delivery", deliveryRoutes);
+
+//Route cho checkout
+app.use("/api/checkout", checkoutRoutes);
+
+//Route cho payment
+app.use("/api/payment", paymentRoute);
 
 // Khởi động server
 const PORT = process.env.PORT || 3000;

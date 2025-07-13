@@ -1,35 +1,79 @@
 const { Order, OrderDetail, Product } = require('../models');
 const { nanoid } = require('nanoid');
 
+//  Tách hàm tái sử dụng để gọi từ cả createOrder và webhook
+exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId, orderId: customOrderId }) => {
+    const orderId = customOrderId || ('OD' + Date.now());
+
+    const newOrder = await Order.create({
+        orderId,
+        programId,
+        shipFee,
+        date: new Date(),
+        status: 'in_transit',
+        accountId,
+        paymentId,
+        profileId
+    });
+    return orderId;
+};
+
+// API tạo order (gọi từ FE checkout bình thường)
 exports.createOrder = async (req, res) => {
-    const { shipFee, programId, paymentId, profileId, items } = req.body; // items: [{ productId, quantity }]
+    const { shipFee, programId, paymentId, profileId, items } = req.body;
     const accountId = req.user.accountId;
 
     try {
-        const orderId = 'OD' + Date.now();
-        const newOrder = await Order.create({
-            orderId,
-            programId,
+        const orderId = await exports.createOrderInternal({
             shipFee,
-            date: new Date(),
-            status: 'in_transit',
-            accountId,
+            programId,
             paymentId,
-            profileId
+            profileId,
+            items,
+            accountId
         });
 
-        const details = items.map(i => ({
-            orderDetailId: nanoid(20),
+        const now = Date.now();
+        const details = items.map((i, index) => ({
+            orderDetailId: `OD${now}${index}`,
             orderId,
             productId: i.productId,
+            classificationId: i.classificationId,
             quantity: i.quantity
         }));
+
         await OrderDetail.bulkCreate(details);
 
         res.status(201).json({ message: 'Tạo đơn hàng thành công', orderId });
     } catch (err) {
         console.error('Lỗi tạo order:', err);
         res.status(500).json({ message: 'Tạo đơn hàng thất bại' });
+    }
+};
+
+// Mua ngay 1 sản phẩm (không qua giỏ hàng)
+exports.buyNow = async (req, res) => {
+    const { productId, paymentId, profileId, programId, shipFee } = req.body;
+    const accountId = req.user.accountId;
+
+    try {
+        if (!productId || !paymentId || !profileId || !programId) {
+            return res.status(400).json({ message: 'Thiếu dữ liệu bắt buộc' });
+        }
+
+        const orderId = await exports.createOrderInternal({
+            shipFee: shipFee || 0,
+            programId,
+            paymentId,
+            profileId,
+            accountId,
+            items: [{ productId, quantity: 1 }]
+        });
+
+        res.status(201).json({ message: 'Mua ngay thành công', orderId });
+    } catch (error) {
+        console.error('Buy Now Error:', error);
+        res.status(500).json({ message: 'Không thể thực hiện mua ngay' });
     }
 };
 
@@ -85,21 +129,61 @@ exports.getAllOrders = async (req, res) => {
 
 exports.updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
-    const { status } = req.body;
-    const staffId = req.user.accountId;
+    const { status, deliveryId } = req.body; // Lấy thêm deliveryId
+    const accountId = req.user.accountId;    // Lấy từ token (JWT)
 
     try {
         const order = await Order.findByPk(orderId);
-        if (!order) return res.status(404).json({ message: 'Không tìm thấy order' });
+        if (!order) {
+            return res.status(404).json({ message: 'Không tìm thấy order' });
+        }
 
         order.status = status;
-      
+        order.deliveryId = deliveryId;
+        order.accountId = accountId;
 
         await order.save();
 
-        res.json({ message: 'Cập nhật trạng thái thành công', status });
+        res.json({
+            message: 'Cập nhật trạng thái và người giao hàng thành công',
+            status,
+            deliveryId
+        });
     } catch (err) {
         console.error('Lỗi cập nhật order:', err);
         res.status(500).json({ message: 'Lỗi cập nhật trạng thái đơn hàng' });
+    }
+};
+
+
+exports.cancelOrder = async (req, res) => {
+    const { orderId } = req.params;
+    const accountId = req.user.accountId;
+
+    try {
+        const order = await Order.findByPk(orderId);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+        }
+
+        // Check quyền sở hữu đơn hàng
+        if (order.accountId !== accountId) {
+            return res.status(403).json({ message: 'Bạn không có quyền hủy đơn hàng này' });
+        }
+
+        // Check trạng thái có thể hủy không
+        if (order.status !== 'in_transit') {
+            return res.status(400).json({ message: 'Chỉ có thể hủy đơn đang giao (in_transit)' });
+        }
+
+
+        order.status = 'cancel';
+        await order.save();
+
+        res.json({ message: 'Đã hủy đơn hàng thành công', orderId: order.orderId });
+    } catch (err) {
+        console.error('Lỗi hủy đơn hàng:', err);
+        res.status(500).json({ message: 'Không thể hủy đơn hàng' });
     }
 };
