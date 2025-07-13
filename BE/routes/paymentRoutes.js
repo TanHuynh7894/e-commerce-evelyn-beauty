@@ -12,6 +12,8 @@ router.all('/payos/webhook', async (req, res) => {
     console.error(" Lỗi xử lý webhook:", err.message);
     res.sendStatus(500);
   }
+  // res.sendStatus(200); 
+  // console.log("Webhook PayOS đã nhận và xử lý thành công");
 });
 
 module.exports = router;

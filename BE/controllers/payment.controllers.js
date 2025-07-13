@@ -214,6 +214,9 @@ exports.handlePayOSWebhook = async (req, res) => {
     const rawOrderCode = data?.orderCode;
     const paymentId = `PM${rawOrderCode}`;
     const transactionId = data?.reference;
+    const AccountBankId = data?.counterAccountBankId;
+    const AccountName = data?.counterAccountName;
+    const AccountNumber = data?.counterAccountNumber;
     const status = req.body?.code === "00" ? "PAID" : "FAILED";
 
     console.log("paymentId:", paymentId);
@@ -229,6 +232,9 @@ exports.handlePayOSWebhook = async (req, res) => {
 
     // 2️ Cập nhật transaction ID
     payment.transactionNo = transactionId || 0;
+    payment.AccountBankId = AccountBankId;
+    payment.AccountName = AccountName;
+    payment.AccountNumber = AccountNumber;
     await payment.save();
     console.log(" Cập nhật transactionNo");
 
