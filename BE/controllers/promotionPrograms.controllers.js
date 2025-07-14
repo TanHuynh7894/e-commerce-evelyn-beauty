@@ -1,4 +1,4 @@
-const { PromotionProgram, Account , Order } = require("../models");
+const { PromotionProgram, Account, Order } = require("../models");
 const { Op } = require("sequelize");
 
 // Lấy promotion programs đang hoạt động (cho role CU - Customer)
@@ -6,7 +6,29 @@ exports.getActivePromotionPrograms = async (req, res) => {
   try {
     const currentDate = new Date();
     const { page, limit, offset } = req.pagination;
+    const items = req.body.items || [];
+    const { Product } = require("../models");
 
+    // Tính tổng amount từ items
+    let amount = 0;
+    if (Array.isArray(items) && items.length > 0) {
+      // Lấy giá từng sản phẩm
+      const productIds = items.map((i) => i.productId);
+      const products = await Product.findAll({
+        where: { productId: productIds },
+        attributes: ["productId", "price"],
+      });
+      const priceMap = {};
+      products.forEach((p) => {
+        priceMap[p.productId] = Number(p.price);
+      });
+      amount = items.reduce((sum, i) => {
+        const price = priceMap[i.productId] || 0;
+        return sum + price * (i.quantity || 1);
+      }, 0);
+    }
+
+    // Lấy tất cả promotion programs có ngày hợp lệ và status ON
     const { count, rows: promotionPrograms } =
       await PromotionProgram.findAndCountAll({
         where: {
@@ -16,22 +38,40 @@ exports.getActivePromotionPrograms = async (req, res) => {
           endDate: {
             [Op.gte]: currentDate,
           },
+          status: "ON",
         },
         limit,
         offset,
         order: [["startDate", "DESC"]],
       });
 
+    // Lọc lại theo logic điều kiện 1 và 2, đồng thời kiểm tra amount >= condition1 nếu có
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 = Sunday
+    const validPromos = promotionPrograms.filter((promo) => {
+      const hasCondition1 =
+        promo.condition1 !== null && promo.condition1 !== undefined;
+      const hasCondition2 =
+        promo.condition2 !== null && promo.condition2 !== undefined;
+      const validCondition1 = hasCondition1 ? amount >= promo.condition1 : true;
+      const validCondition2 = hasCondition2
+        ? promo.condition2.split(",").map(Number).includes(currentDay)
+        : true;
+      const noConditions = !hasCondition1 && !hasCondition2;
+      return noConditions || (validCondition1 && validCondition2);
+    });
+
     res.json({
       message: "Lấy danh sách promotion programs đang hoạt động thành công",
       data: {
-        promotionPrograms,
+        promotionPrograms: validPromos,
         pagination: {
-          total: count,
+          total: validPromos.length,
           page,
           limit,
-          totalPages: Math.ceil(count / limit),
+          totalPages: Math.ceil(validPromos.length / limit),
         },
+        amount,
       },
     });
   } catch (error) {
@@ -108,7 +148,7 @@ exports.softDeletePromotionProgram = async (req, res) => {
 
     // Kiểm tra xem có đơn hàng nào dùng chương trình khuyến mãi này không
     const hasOrder = await Order.findOne({
-      where: { programId: promotionProgram.programId }
+      where: { programId: promotionProgram.programId },
     });
 
     if (hasOrder) {
@@ -123,7 +163,8 @@ exports.softDeletePromotionProgram = async (req, res) => {
       await promotionProgram.save();
 
       return res.json({
-        message: "Tắt chương trình khuyến mãi thành công (vì có đơn hàng liên quan)",
+        message:
+          "Tắt chương trình khuyến mãi thành công (vì có đơn hàng liên quan)",
         data: promotionProgram,
       });
     }
@@ -131,9 +172,9 @@ exports.softDeletePromotionProgram = async (req, res) => {
     // Nếu không có liên kết với đơn hàng → xóa vĩnh viễn
     await promotionProgram.destroy();
     return res.json({
-      message: "Xóa vĩnh viễn chương trình khuyến mãi thành công (không liên quan đơn hàng)",
+      message:
+        "Xóa vĩnh viễn chương trình khuyến mãi thành công (không liên quan đơn hàng)",
     });
-
   } catch (error) {
     console.error("Lỗi khi xử lý chương trình khuyến mãi:", error);
     res.status(500).json({
@@ -142,7 +183,6 @@ exports.softDeletePromotionProgram = async (req, res) => {
     });
   }
 };
-
 
 // Tạo mới promotion program (cho role OS - Owner/Staff)
 exports.createPromotionProgram = async (req, res) => {

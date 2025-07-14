@@ -12,7 +12,7 @@ const {
 } = require("../middlewares/promotionPrograms.middlewares");
 
 // Lấy promotion programs đang hoạt động (cho role CU - Customer)
-router.get(
+router.post(
   "/",
   verifyToken,
   requireRole("CU"),
@@ -36,7 +36,7 @@ router.post(
 router.get(
   "/os/on",
   verifyToken,
-  requireRole("OS", "SF", "CU"),
+  requireRole("OS", "SF"),
   logPromotionProgramRequest,
   validatePagination,
   paginate,
