@@ -1,6 +1,5 @@
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const { v4: uuidv4 } = require("uuid");
 const { Account } = require("../models"); // Sequelize models
 require("dotenv").config();
 
@@ -21,7 +20,7 @@ passport.use(
 
         if (!account) {
           account = await Account.create({
-            accountId: uuidv4().slice(0, 20),
+            accountId: "AC" + Date.now(),
             name,
             email,
             password: "GOOGLE_USER",

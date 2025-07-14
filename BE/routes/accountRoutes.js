@@ -19,12 +19,21 @@ const {
 router.post("/verify-otp", accountController.verifyOtp);
 
 // Auth routes
-router.post("/login", validateEmail,accountController.loginAccount);
-router.post("/register", validatePassword,validateEmail, accountController.registerAccount);
+router.post("/login", validateEmail, accountController.loginAccount);
+router.post(
+  "/register",
+  validatePassword,
+  validateEmail,
+  accountController.registerAccount
+);
 router.post("/google", accountController.googleLogin);
 
 // Quên mật khẩu (JWT không lưu DB)
-router.post("/forgot-password", validateEmail,accountController.forgotPassword);
+router.post(
+  "/forgot-password",
+  validateEmail,
+  accountController.forgotPassword
+);
 router.post(
   "/reset-password",
   validateEmail,
@@ -94,6 +103,11 @@ router.post(
   validatePassword,
   requireRole("OS"),
   createAccountWithOtp
+);
+router.post(
+  "/verify-otp-account",
+  validateEmail,
+  accountController.verifyAdminOtpOnly
 );
 router.get("/all", verifyToken, requireRole("OS"), getAllAccounts);
 router.put("/update/:accountId", verifyToken, requireRole("OS"), updateAccount);

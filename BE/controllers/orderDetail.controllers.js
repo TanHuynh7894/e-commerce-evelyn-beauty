@@ -1,9 +1,14 @@
-const { OrderDetail } = require("../models");
+const { OrderDetail, Order } = require("../models");
 // Hàm internal (dùng ở đâu cũng được)
 // Controller dùng cho API, gọi lại hàm internal
 // const { createOrderDetailInternal } = require('./orderDetail.controllers'); // Nếu tách file, còn cùng file thì không cần import
 // Hàm tạo chi tiết đơn hàng nội bộ (internal)
-const createOrderDetailInternal = async ({ productId, classificationId, orderId, quantity }) => {
+const createOrderDetailInternal = async ({
+  productId,
+  classificationId,
+  orderId,
+  quantity,
+}) => {
   const orderDetailId = "OT" + Date.now();
   const newOrderDetail = await OrderDetail.create({
     orderDetailId,
@@ -15,53 +20,102 @@ const createOrderDetailInternal = async ({ productId, classificationId, orderId,
   return newOrderDetail;
 };
 
-const createOrderDetail = async (req, res) => {
-  try {
-    const { productId, classificationId, orderId, quantity } = req.body;
-    const newOrderDetail = await exports.createOrderDetailInternal({
-      productId,
-      classificationId,
-      orderId,
-      quantity,
-    });
-    res.status(201).json(newOrderDetail);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+// const createOrderDetail = async (req, res) => {
+//   try {
+//     const { productId, classificationId, orderId, quantity } = req.body;
+//     const newOrderDetail = await createOrderDetailInternal({
+//       productId,
+//       classificationId,
+//       orderId,
+//       quantity,
+//     });
+//     res.status(201).json(newOrderDetail);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
 
-// Lấy tất cả orderDetail
-const getAllOrderDetails = async (req, res) => {
-  try {
-    const { orderId } = req.body;
-    if (!orderId)
-      return res.status(400).json({ message: "Vui lòng cung cấp orderId!" });
-    const orderDetails = await OrderDetail.findAll({ where: { orderId } });
-    res.json(orderDetails);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+// // Lấy tất cả orderDetail
+// const getAllOrderDetails = async (req, res) => {
+//   try {
+//     const { orderId } = req.body;
+//     const accountId = req.user.accountId; // Lấy accountId từ middleware xác thực
 
-// Lấy orderDetail theo id
-const getOrderDetailById = async (req, res) => {
-  try {
-    const { id } = req.body;
-    const orderDetail = await OrderDetail.findByPk(id);
-    if (!orderDetail)
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy chi tiết đơn hàng" });
-    res.json(orderDetail);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+//     if (!orderId)
+//       return res.status(400).json({ message: "Vui lòng cung cấp orderId!" });
+
+//     // Kiểm tra orderId có thuộc về accountId không
+//     const order = await Order.findOne({ where: { orderId, accountId } });
+//     if (!order) {
+//       return res.status(403).json({ message: "Bạn không có quyền xem đơn hàng này!" });
+//     }
+
+//     const orderDetails = await OrderDetail.findAll({ where: { orderId } });
+//     res.json(orderDetails);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+// // Lấy orderDetail theo id
+// const getOrderDetailById = async (req, res) => {
+//   try {
+//     const { id } = req.body;
+//     const orderDetail = await OrderDetail.findByPk(id);
+//     if (!orderDetail)
+//       return res
+//         .status(404)
+//         .json({ message: "Không tìm thấy chi tiết đơn hàng" });
+//     res.json(orderDetail);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
 
 // Cập nhật orderDetail
 const updateOrderDetail = async (req, res) => {
   try {
     const { id, comment, rate, imageEvaluate } = req.body;
+    const accountId = req.user.accountId; // Lấy accountId từ middleware xác thực
+
+    // Tìm orderDetail và lấy orderId
+    const orderDetail = await OrderDetail.findByPk(id);
+    if (!orderDetail) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy chi tiết đơn hàng" });
+    }
+
+    // Lấy order liên quan
+    const order = await Order.findOne({
+      where: { orderId: orderDetail.orderId },
+    });
+    if (!order) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy đơn hàng liên quan" });
+    }
+
+    // Lấy profile liên quan
+    const { Profile } = require("../models");
+    const profile = await Profile.findOne({
+      where: { profileId: order.profileId },
+    });
+    if (!profile) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy profile của khách hàng" });
+    }
+
+    // Kiểm tra accountId của profile có trùng với accountId đăng nhập không
+    if (profile.accountId !== accountId) {
+      return res
+        .status(403)
+        .json({
+          message: "Bạn không có quyền cập nhật chi tiết đơn hàng này!",
+        });
+    }
+
     // Chỉ cập nhật các trường có giá trị
     const updateData = {};
     if (comment !== undefined) updateData.comment = comment;
@@ -91,17 +145,17 @@ const deleteOrderDetail = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Không tìm thấy chi tiết đơn hàng" });
-res.json({ message: "Xóa chi tiết đơn hàng thành công" });
+    res.json({ message: "Xóa chi tiết đơn hàng thành công" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 module.exports = {
-  createOrderDetail,
-  getAllOrderDetails,
-  getOrderDetailById,
+  // createOrderDetail,
+  // getAllOrderDetails,
+  // getOrderDetailById,
   updateOrderDetail,
   deleteOrderDetail,
-  createOrderDetailInternal, 
+  createOrderDetailInternal,
 };
