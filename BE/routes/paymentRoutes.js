@@ -15,5 +15,6 @@ router.all('/payos/webhook', async (req, res) => {
   // res.sendStatus(200); 
   // console.log("Webhook PayOS đã nhận và xử lý thành công");
 });
+router.get('/transaction/:orderCode', verifyToken, requireRole('OS','SF'), paymentController.getTransactionInfo);
 
 module.exports = router;
