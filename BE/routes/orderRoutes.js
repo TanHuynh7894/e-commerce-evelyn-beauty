@@ -24,4 +24,7 @@ router.post("/cancel/:orderId", verifyToken, requireRole("CU"), orderController.
 //lấy thông tin giao hàng
 // router.get('/', verifyToken, orderController.getDeliveryAddress);
 
+// Lấy danh sách đơn hàng hoàn trả
+router.get("/refunds", verifyToken, requireRole("OS"), orderController.getRefundOrders);
+
 module.exports = router;

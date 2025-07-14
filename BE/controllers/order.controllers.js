@@ -1,9 +1,9 @@
-const { Order, OrderDetail, Product } = require('../models');
+const { Order, OrderDetail, Product, Profile, Delivery, PromotionProgram, Account, Payment } = require('../models');
 const { nanoid } = require('nanoid');
 
 //  Tách hàm tái sử dụng để gọi từ cả createOrder và webhook
 exports.createOrderInternal = async ({ shipFee, programId, paymentId, profileId, items, accountId, orderId: customOrderId }) => {
-    const orderId = customOrderId ;
+    const orderId = customOrderId;
 
     const newOrder = await Order.create({
         orderId,
@@ -185,5 +185,68 @@ exports.cancelOrder = async (req, res) => {
     } catch (err) {
         console.error('Lỗi hủy đơn hàng:', err);
         res.status(500).json({ message: 'Không thể hủy đơn hàng' });
+    }
+};
+
+exports.getRefundOrders = async (req, res) => {
+    try {
+        const refundOrders = await Order.findAll({
+            where: { status: 'return_approved' },
+            attributes: ['orderId', 'programId', 'shipFee', 'date', 'status'],
+            include: [
+                {
+                    model: PromotionProgram,
+                    as: 'promotionProgram',
+                    attributes: ['programId', 'value']
+                },
+                {
+                    model: Payment,
+                    as: 'payment',
+                    attributes: ['paymentId', 'transactionNo', 'accountBankId', 'accountName', 'accountNumber']
+                },
+                {
+                    model: Delivery,
+                    as: 'delivery',
+                    attributes: ['deliveryId', 'transaction_no']
+                },
+                {
+                    model: Account,
+                    as: 'account',
+                    attributes: ['accountId', 'name']
+                },
+                {
+                    model: Profile,
+                    as: 'profile',
+                    attributes: ['profileId', 'name']
+                }
+            ],
+            order: [['date', 'DESC']]
+        });
+
+        // Format value thành phần trăm nếu có PromotionProgram
+        const formattedOrders = refundOrders.map(order => {
+            const data = order.toJSON();
+
+            // Format phần trăm từ value
+            if (data.promotionProgram?.value !== undefined && data.promotionProgram?.value !== null) {
+                data.promotionProgram.value = `${parseFloat(data.promotionProgram.value * 100).toFixed(0)}%`;
+            }
+
+            // Nếu không có Delivery thì gán nội dung thay thế
+            if (!data.delivery) {
+                data.delivery = "Chưa có thông tin giao hàng";
+            }
+
+            return data;
+        });
+
+
+        res.status(200).json({
+            message: "Danh sách đơn hàng hoàn trả",
+            data: formattedOrders
+        });
+    } catch (error) {
+        console.error("Lỗi lấy đơn hàng refund:", error);
+        res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
     }
 };
