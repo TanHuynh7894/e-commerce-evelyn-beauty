@@ -49,4 +49,12 @@ router.post(
   orderDetailController.deleteOrderDetail
 );
 
+// Route đánh giá sản phẩm
+router.post(
+  "/rate",
+  verifyToken,
+  requireRole("CU"),
+  orderDetailController.rateProduct
+);
+
 module.exports = router;
