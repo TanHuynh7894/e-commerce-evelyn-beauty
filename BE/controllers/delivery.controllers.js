@@ -637,6 +637,52 @@ module.exports = {
       });
     }
   },
+
+  // Lấy danh sách quận/huyện theo province_id truyền qua query string
+  async getDistrictsByProvince(req, res) {
+    const province_id = parseInt(req.query.province_id, 10);
+    if (!province_id)
+      return res
+        .status(400)
+        .json({ success: false, message: "Thiếu province_id" });
+    try {
+      const response = await ghn.post("/master-data/district", { province_id });
+      res.json({ success: true, data: response.data.data });
+    } catch (error) {
+      console.error(
+        "GHN getDistrictsByProvince error:",
+        error?.response?.data || error.message
+      );
+      res.status(500).json({
+        success: false,
+        message: "Lỗi lấy danh sách quận/huyện",
+        error: error?.response?.data || error.message,
+      });
+    }
+  },
+
+  // Lấy danh sách phường/xã theo district_id truyền qua query string
+  async getWardsByDistricts(req, res) {
+    const district_id = parseInt(req.query.district_id, 10);
+    if (!district_id)
+      return res
+        .status(400)
+        .json({ success: false, message: "Thiếu district_id" });
+    try {
+      const response = await ghn.post("/master-data/ward", { district_id });
+      res.json({ success: true, data: response.data.data });
+    } catch (error) {
+      console.error(
+        "GHN getWardsByDistricts error:",
+        error?.response?.data || error.message
+      );
+      res.status(500).json({
+        success: false,
+        message: "Lỗi lấy danh sách phường/xã",
+        error: error?.response?.data || error.message,
+      });
+    }
+  },
 };
 
 // =====================

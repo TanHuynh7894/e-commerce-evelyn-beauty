@@ -243,35 +243,31 @@ exports.handlePayOSWebhook = async (req, res) => {
     const AccountNumber = data?.counterAccountNumber;
     const status = req.body?.code === "00" ? "PAID" : "FAILED";
 
-    console.log("paymentId:", paymentId);
-    console.log("Transaction ID:", transactionId);
-    console.log("Status:", status);
+    console.log(" paymentId:", paymentId);
+    console.log(" Transaction ID:", transactionId);
+    console.log(" Status:", status);
 
-    // 1️ Tìm payment
     const payment = await Payment.findByPk(paymentId);
     if (!payment) {
       console.warn(" Không tìm thấy payment");
-      return res.sendStatus(404);
+      return res.status(404).json({ message: "Không tìm thấy payment" });
     }
 
-    // 2️ Cập nhật transaction ID
+    // Cập nhật thông tin thanh toán
     payment.transactionNo = transactionId || 0;
     payment.AccountBankId = AccountBankId;
     payment.AccountName = AccountName;
     payment.AccountNumber = AccountNumber;
     await payment.save();
-    console.log(" Cập nhật transactionNo");
+    console.log(" Cập nhật transaction");
 
-    // 3️ Tìm đơn hàng tương ứng
     const order = await Order.findOne({ where: { paymentId } });
     if (!order) {
       console.warn(" Không tìm thấy order theo paymentId");
-      return res.sendStatus(404);
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
 
-    // 4️ Nếu thanh toán thành công
     if (status === "PAID") {
-      // 5️ Trừ tồn kho sản phẩm
       const orderDetails = await OrderDetail.findAll({
         where: { orderId: order.orderId },
       });
@@ -295,7 +291,7 @@ exports.handlePayOSWebhook = async (req, res) => {
           console.warn(" Không tìm thấy classification:", item);
         }
       }
-      // 6. Cập nhật trạng thái cart item thành OFF
+
       const cart = await Cart.findOne({
         where: { accountId: order.accountId },
       });
@@ -312,17 +308,23 @@ exports.handlePayOSWebhook = async (req, res) => {
             }
           );
         }
-        console.log("Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
-      } else {
-        console.warn("Không tìm thấy giỏ hàng của người dùng");
+        console.log(" Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
       }
     } else {
       console.log(" Thanh toán thất bại, không xử lý đơn hàng");
     }
 
-    return res.sendStatus(200);
+    //  Trả về kết quả JSON rõ ràng để test dễ hơn
+    return res.status(200).json({
+      message: "Webhook đã xử lý thành công",
+      orderCode: rawOrderCode,
+      status,
+    });
   } catch (err) {
     console.error(" Lỗi xử lý webhook:", err);
-    return res.sendStatus(500);
+    return res.status(500).json({
+      message: "Lỗi khi xử lý webhook",
+      error: err.message,
+    });
   }
 };
