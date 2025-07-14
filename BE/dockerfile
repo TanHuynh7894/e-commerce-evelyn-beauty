@@ -1,0 +1,18 @@
+# Base image
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files và cài đặt dependency
+COPY package*.json ./
+RUN npm install
+
+# Copy toàn bộ source code
+COPY . .
+
+# Expose port (nếu bạn dùng 5000 hoặc 3000 thì sửa lại cho đúng)
+EXPOSE 5000
+
+# Start app
+CMD ["node", "server.js"]
