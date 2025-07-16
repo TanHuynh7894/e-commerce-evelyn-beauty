@@ -16,6 +16,19 @@ const {
   validatePhoneFormat,
   profileRateLimit,
 } = require("../middlewares/profiles.middlewares");
+const multer = require("multer");
+const path = require("path");
+// Multer config cho profile images
+const profileStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, "../public/profiles"));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "profile_" + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+const uploadProfile = multer({ storage: profileStorage });
 
 //Lấy tất cả profile của customer hiện tại
 // GET /api/profiles
@@ -80,6 +93,7 @@ router.get(
 // Route cho OS tạo profile mới cho accountId có role là SF
 router.post(
   "/staff-create",
+  uploadProfile.single("image"), // middleware Multer xử lý file upload
   verifyToken,
   requireRole("OS"),
   require("../controllers/profiles.controllers").createProfileForStaff

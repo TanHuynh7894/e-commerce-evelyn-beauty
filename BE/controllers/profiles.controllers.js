@@ -63,7 +63,7 @@ const getMyProfile = async (req, res) => {
 const createProfile = async (req, res) => {
   try {
     const { accountId } = req.user;
-    const { name, phone, address, gender, birthday, image } = req.body;
+    const { name, phone, address, gender, birthday } = req.body;
 
     // Kiểm tra các trường bắt buộc
     if (!name || name.trim() === "") {
@@ -138,7 +138,6 @@ const createProfile = async (req, res) => {
       address: address.trim(),
       gender,
       birthday,
-      image,
     });
 
     return res.status(201).json({
@@ -150,7 +149,6 @@ const createProfile = async (req, res) => {
         address: newProfile.address,
         gender: newProfile.gender,
         birthday: newProfile.birthday,
-        image: newProfile.image,
       },
     });
   } catch (error) {
@@ -415,10 +413,13 @@ const createProfileForStaff = async (req, res) => {
           .json({ message: `${addressFields[i].label} không được để trống` });
       }
     }
-
+    // Xử lý ảnh: ưu tiên file upload, nếu không có thì lấy từ body
+    let imageLink = image;
+    if (req.file) {
+      imageLink = `/public/profiles/${req.file.filename}`;
+    }
     // Tạo profileId mới
     const profileId = "PF" + Date.now();
-
     // Tạo profile mới
     const newProfile = await Profile.create({
       profileId,
@@ -428,7 +429,7 @@ const createProfileForStaff = async (req, res) => {
       address,
       gender,
       birthday,
-      image,
+      image: imageLink,
     });
     return res.status(201).json({
       message: "Tạo profile cho staff thành công",

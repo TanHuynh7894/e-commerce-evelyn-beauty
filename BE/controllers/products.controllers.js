@@ -488,9 +488,17 @@ exports.getRecommendProducts = async (req, res) => {
 // thêm 1 sản phẩm mới
 exports.importNewProduct = async (req, res) => {
   try {
-    console.log("Body nhận được:", JSON.stringify(req.body, null, 2));
-    const { products } = req.body;
-
+    let { products } = req.body;
+    // Nếu products là string (gửi qua form-data), parse lại JSON
+    if (typeof products === "string") {
+      try {
+        products = JSON.parse(products);
+      } catch (e) {
+        return res
+          .status(400)
+          .json({ message: "products không phải là JSON hợp lệ." });
+      }
+    }
     if (!Array.isArray(products) || products.length === 0) {
       return res
         .status(400)
@@ -500,18 +508,14 @@ exports.importNewProduct = async (req, res) => {
     const created = [];
     const skipped = [];
 
-    for (const item of products) {
+    for (const [index, item] of products.entries()) {
       const {
         name,
         origin,
         brand,
         price,
         description,
-        image_1,
-        image_2,
-        image_3,
-        image_4,
-        image_5,
+        images = [], // mảng link ảnh
         categories = [], // mảng categoryId
         classifications = [], // mảng { classificationId, quantity }
       } = item;
@@ -533,6 +537,25 @@ exports.importNewProduct = async (req, res) => {
         skipped.push({ name, reason: "Sản phẩm đã tồn tại" });
         continue;
       }
+
+      // Ưu tiên lấy ảnh từ file upload nếu có (form-data)
+      let imagesArr = images;
+      if (req.files && req.files.length > 0) {
+        // Nếu gửi nhiều sản phẩm 1 lần, chia đều file cho từng sản phẩm (nâng cao),
+        // còn nếu chỉ gửi 1 sản phẩm thì lấy hết file cho sản phẩm đó
+        if (products.length === 1) {
+          imagesArr = req.files.map((f) => `/public/${f.filename}`);
+        } else {
+          // Nếu gửi nhiều sản phẩm, mỗi sản phẩm gửi kèm số file ảnh tương ứng
+          // (ví dụ: req.files = [file1, file2, file3, ...], mỗi item.images.length)
+          // Ở đây chỉ lấy file theo thứ tự cho từng sản phẩm nếu cần
+          // Đơn giản: mỗi sản phẩm lấy 1 file theo index (nếu có)
+          if (req.files[index]) {
+            imagesArr = [`/public/${req.files[index].filename}`];
+          }
+        }
+      }
+      const [image_1, image_2, image_3, image_4, image_5] = imagesArr;
 
       // Tạo sản phẩm mới (KHÔNG có quantity)
       const newProduct = await Product.create({

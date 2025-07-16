@@ -20,6 +20,7 @@ const orderDetailRoutes = require("./routes/orderDetailRoutes");
 const deliveryRoutes = require("./routes/deliveryRoutes");
 const checkoutRoutes = require("./routes/checkoutRoutes");
 const paymentRoute = require("./routes/paymentRoutes");
+const path = require("path");
 
 dotenv.config();
 
@@ -39,6 +40,9 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Cho phép truy cập file tĩnh trong thư mục public
+app.use("/public", express.static(path.join(__dirname, "public")));
 
 // 🏠 Route kiểm tra server
 app.get("/", (req, res) => {
