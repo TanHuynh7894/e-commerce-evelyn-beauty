@@ -59,46 +59,39 @@ const getMyProfile = async (req, res) => {
   }
 };
 
-// Tạo profile mới cho customer
 const createProfile = async (req, res) => {
   try {
     const { accountId } = req.user;
     const { name, phone, address, gender, birthday } = req.body;
 
-    // Kiểm tra các trường bắt buộc
+    // Kiểm tra tên
     if (!name || name.trim() === "") {
-      return res.status(400).json({
-        message: "Tên không được để trống",
-      });
+      return res.status(400).json({ message: "Tên không được để trống" });
     }
 
+    // Kiểm tra số điện thoại
     if (!phone || phone.trim() === "") {
-      return res.status(400).json({
-        message: "Số điện thoại không được để trống",
-      });
+      return res
+        .status(400)
+        .json({ message: "Số điện thoại không được để trống" });
     }
-    // Kiểm tra số điện thoại phải đủ 10 số
     const phoneDigits = phone.trim();
     if (!/^\d{10}$/.test(phoneDigits)) {
-      return res.status(400).json({
-        message: "Số điện thoại phải đủ 10 số và chỉ chứa ký tự số",
-      });
+      return res
+        .status(400)
+        .json({ message: "Số điện thoại phải đủ 10 số và chỉ chứa ký tự số" });
     }
 
+    // Kiểm tra địa chỉ
     if (!address || address.trim() === "") {
-      return res.status(400).json({
-        message: "Địa chỉ không được để trống",
-      });
+      return res.status(400).json({ message: "Địa chỉ không được để trống" });
     }
 
-    // Kiểm tra địa chỉ phải có đầy đủ thông tin
-    // Tách địa chỉ, bỏ qua các phần rỗng do nhập thừa dấu phẩy hoặc khoảng trắng
     const addressParts = address
       .split(",")
       .map((part) => part.trim())
       .filter((part) => part.length > 0);
 
-    // Danh sách các trường bắt buộc (phù hợp thực tế VN hiện tại)
     const addressFields = [
       { key: "street", label: "Tên đường" },
       { key: "ward", label: "Phường/Xã" },
@@ -115,21 +108,69 @@ const createProfile = async (req, res) => {
       });
     }
 
-    // Kiểm tra từng phần của địa chỉ
+    // Từ khóa không hợp lệ nếu phần nhập chỉ là placeholder
+    const invalidValues = [
+      "Tỉnh/Thành",
+      "Quận/Huyện/Thành phố thuộc tỉnh",
+      "Phường/Xã",
+      "Tên đường",
+      "Phường",
+      "Xã",
+      "Quận",
+      "Huyện",
+      "Thành Phố",
+      "Thanh Pho",
+      "Thành phố",
+      "TP",
+    ];
+
+    const invalidKeywords = [
+      "phuong",
+      "xa",
+      "quan",
+      "huyen",
+      "thanhpho",
+      "tp",
+      "tinh",
+      "district",
+      "ward",
+      "province",
+      "city",
+    ];
+
+    function removeVietnameseTones(str) {
+      return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "D")
+        .toLowerCase();
+    }
+
     for (let i = 0; i < addressFields.length; i++) {
-      if (!addressParts[i] || addressParts[i] === "") {
+      const partRaw = addressParts[i] || "";
+      const partTrimmed = partRaw.trim();
+      const partNoTone = removeVietnameseTones(partTrimmed);
+      const partNoSpace = partNoTone.replace(/\s+/g, "");
+
+      // Chặn nếu phần bị trống hoặc là placeholder
+      if (
+        partTrimmed === "" ||
+        invalidValues.includes(partTrimmed) ||
+        invalidKeywords.some(
+          (keyword) =>
+            partNoTone === keyword || // đúng từ khóa
+            partNoSpace === keyword // ví dụ: "phuong8"
+        )
+      ) {
         return res.status(400).json({
-          message: `${addressFields[i].label} không được để trống`,
+          message: `${addressFields[i].label} không hợp lệ hoặc bị thiếu`,
         });
       }
     }
 
-    // (Đã xóa kiểm tra chỉ cho phép 1 profile/account, giờ 1 account có thể tạo nhiều profile)
-
-    // Tạo profileId mới
     const profileId = "PF" + Date.now();
 
-    // Tạo profile mới
     const newProfile = await Profile.create({
       profileId,
       accountId,
@@ -153,9 +194,7 @@ const createProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi tạo profile:", error);
-    return res.status(500).json({
-      message: "Lỗi server khi tạo profile",
-    });
+    return res.status(500).json({ message: "Lỗi server khi tạo profile" });
   }
 };
 
