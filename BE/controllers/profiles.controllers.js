@@ -164,7 +164,22 @@ const updateProfileById = async (req, res) => {
   try {
     const { profileId } = req.query;
     const { accountId } = req.user;
-    const { name, phone, address, gender, birthday, image } = req.body;
+    const { name, phone, address } = req.body;
+
+    // Chỉ cho phép update các trường name, phone, address
+    const allowedFields = ["name", "phone", "address"];
+    const invalidFields = Object.keys(req.body).filter(
+      (key) =>
+        !allowedFields.includes(key) &&
+        req.body[key] !== undefined &&
+        req.body[key] !== null
+    );
+    if (invalidFields.length > 0) {
+      return res.status(400).json({
+        message: "Chỉ được phép cập nhật các trường: name, phone, address.",
+        invalidFields,
+      });
+    }
 
     if (!profileId) {
       return res
@@ -231,9 +246,6 @@ const updateProfileById = async (req, res) => {
       name,
       phone,
       address,
-      gender,
-      birthday,
-      image: image || profile.image,
     });
 
     return res.status(200).json({
@@ -243,9 +255,6 @@ const updateProfileById = async (req, res) => {
         name: profile.name,
         phone: profile.phone,
         address: profile.address,
-        gender: profile.gender,
-        birthday: profile.birthday,
-        image: profile.image,
       },
     });
   } catch (error) {
@@ -299,15 +308,7 @@ const getAllProfilesOfAccount = async (req, res) => {
     const { accountId } = req.user;
     const profiles = await Profile.findAll({
       where: { accountId, status: "ON" },
-      attributes: [
-        "profileId",
-        "name",
-        "phone",
-        "address",
-        "gender",
-        "birthday",
-        "image",
-      ],
+      attributes: ["profileId", "name", "phone", "address"],
     });
     return res.status(200).json({ profiles });
   } catch (error) {
@@ -535,7 +536,12 @@ const updateProfileOfStaff = async (req, res) => {
     }
     if (gender !== undefined) updateData.gender = gender;
     if (birthday !== undefined) updateData.birthday = birthday;
-    if (image !== undefined) updateData.image = image;
+    // Ưu tiên lấy ảnh từ file upload nếu có
+    if (req.file) {
+      updateData.image = `/public/profiles/${req.file.filename}`;
+    } else if (image !== undefined) {
+      updateData.image = image;
+    }
     await profile.update(updateData);
     return res.status(200).json({
       message: "Cập nhật profile cho staff thành công",

@@ -8,6 +8,8 @@ const {
   Classification,
 } = require("../models");
 const { Op, Sequelize } = require("sequelize");
+const fs = require("fs");
+const path = require("path");
 
 // Lấy tất cả sản phẩm
 exports.getAllProducts = async (req, res) => {
@@ -526,6 +528,31 @@ exports.importNewProduct = async (req, res) => {
         continue;
       }
 
+      // Kiểm tra thiếu categoryId
+      if (Array.isArray(categories) && categories.length > 0) {
+        const invalidCategory = categories.find(
+          (catId) => !catId && catId !== 0
+        );
+        if (invalidCategory !== undefined) {
+          skipped.push({ name, reason: "Thiếu categoryId trong categories" });
+          continue;
+        }
+      }
+
+      // Kiểm tra thiếu classificationId
+      if (Array.isArray(classifications) && classifications.length > 0) {
+        const invalidClassification = classifications.find(
+          (cl) => !cl.classificationId && cl.classificationId !== 0
+        );
+        if (invalidClassification !== undefined) {
+          skipped.push({
+            name,
+            reason: "Thiếu classificationId trong classifications",
+          });
+          continue;
+        }
+      }
+
       const newProductId = "PD" + Date.now() + Math.floor(Math.random() * 1000);
 
       // Kiểm tra sản phẩm đã tồn tại (KHÔNG kiểm tra image)
@@ -597,6 +624,18 @@ exports.importNewProduct = async (req, res) => {
       created.push(newProduct);
     }
 
+    if (created.length === 0) {
+      return res.status(400).json({
+        message: "Import không thành công",
+        imported: 0,
+        skipped: skipped.length,
+        data: {
+          created: [],
+          skipped,
+        },
+      });
+    }
+
     return res.status(201).json({
       message: "Import sản phẩm thành công",
       imported: created.length,
@@ -634,7 +673,7 @@ exports.importNewProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { productId } = req.query;
-    const updates = req.body;
+    const updates = req.body || {};
 
     const product = await Product.findByPk(productId);
 
@@ -656,7 +695,7 @@ exports.updateProduct = async (req, res) => {
       allowedFields.includes(key)
     );
 
-    if (updateKeys.length === 0) {
+    if (updateKeys.length === 0 && (!req.files || req.files.length === 0)) {
       return res
         .status(400)
         .json({ message: "Không có trường hợp lệ để cập nhật." });
@@ -680,6 +719,45 @@ exports.updateProduct = async (req, res) => {
     const newProductId = "PD" + Date.now();
     const accountId = req.user.accountId; // lấy từ user đăng nhập
 
+    // Xử lý ảnh khi update bằng form-data
+    let image_1 = updates.image_1 || product.image_1;
+    let image_2 = updates.image_2 || product.image_2;
+    let image_3 = updates.image_3 || product.image_3;
+    let image_4 = updates.image_4 || product.image_4;
+    let image_5 = updates.image_5 || product.image_5;
+
+    // Nếu có file upload mới, xóa ảnh cũ trong public/products và lưu ảnh mới vào đó
+    if (req.files && req.files.length > 0) {
+      // Danh sách ảnh cũ
+      const oldImages = [
+        product.image_1,
+        product.image_2,
+        product.image_3,
+        product.image_4,
+        product.image_5,
+      ];
+      for (const img of oldImages) {
+        if (img && img.startsWith("/public/products/")) {
+          const imgPath = path.join(__dirname, "..", img);
+          fs.unlink(imgPath, (err) => {
+            // Không cần throw nếu lỗi file không tồn tại
+          });
+        }
+      }
+      // Lưu file mới vào public/products và cập nhật đường dẫn
+      const filePaths = req.files.map((f) => {
+        const oldPath = f.path;
+        const fileName = f.filename;
+        const newPath = path.join(__dirname, "../public/products", fileName);
+        // Di chuyển file vào public/products nếu chưa ở đó
+        if (!oldPath.includes("public/products")) {
+          fs.renameSync(oldPath, newPath);
+        }
+        return `/public/products/${fileName}`;
+      });
+      [image_1, image_2, image_3, image_4, image_5] = filePaths;
+    }
+
     const newProduct = await Product.create({
       productId: newProductId,
       name: updates.name || product.name,
@@ -687,11 +765,11 @@ exports.updateProduct = async (req, res) => {
       brand: updates.brand || product.brand,
       price: updates.price || product.price,
       description: updates.description || product.description,
-      image_1: updates.image_1 || product.image_1,
-      image_2: updates.image_2 || product.image_2,
-      image_3: updates.image_3 || product.image_3,
-      image_4: updates.image_4 || product.image_4,
-      image_5: updates.image_5 || product.image_5,
+      image_1,
+      image_2,
+      image_3,
+      image_4,
+      image_5,
       accountId, // truyền accountId lấy từ user đăng nhập
       status: "ON",
     });

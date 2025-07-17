@@ -102,6 +102,7 @@ router.post(
 // Route cho OS cập nhật profile của accountId có role là SF
 router.put(
   "/staff-update",
+  uploadProfile.single("image"), // Thêm middleware upload file ảnh
   verifyToken,
   requireRole("OS"),
   require("../controllers/profiles.controllers").updateProfileOfStaff

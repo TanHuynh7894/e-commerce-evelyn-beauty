@@ -53,8 +53,9 @@ router.post(
 );
 
 //updateProduct
-router.patch(
+router.put(
   "/updateProduct",
+  uploadProduct.array("images", 5), // Thêm middleware upload file ảnh
   verifyToken,
   requireRole("SF", "OS"),
   productsController.updateProduct
