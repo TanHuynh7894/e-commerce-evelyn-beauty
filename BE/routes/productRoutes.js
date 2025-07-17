@@ -7,7 +7,6 @@ const {
   logProductRequest,
 } = require("../middlewares/products.middlewares");
 const { verifyToken, requireRole } = require("../middlewares/auth");
-
 // Multer config cho product images (nếu chưa có ở đầu file thì thêm vào)
 const multer = require("multer");
 const path = require("path");
