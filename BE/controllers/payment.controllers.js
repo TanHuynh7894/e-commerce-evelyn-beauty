@@ -190,7 +190,7 @@ exports.createPayOSLink = async (req, res) => {
       orderCode,
       amount: finalAmount,
       description: `ORDER=${orderId}`,
-      cancelUrl: process.env.PAYOS_CANCEL_URL,
+      cancelUrl: process.env.PAYOS_CANCEL_URL+'/'+orderCode,
       returnUrl: process.env.PAYOS_RETURN_URL,
       items: fullItems.map((i) => ({
         name: `SP-${i.productId}`,
