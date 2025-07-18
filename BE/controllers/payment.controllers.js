@@ -1,4 +1,14 @@
-const { Payment, Order, OrderDetail, Cart, CartItem, Product, PromotionProgram, Profile, ClassificationProduct } = require("../models");
+const {
+  Payment,
+  Order,
+  OrderDetail,
+  Cart,
+  CartItem,
+  Product,
+  PromotionProgram,
+  Profile,
+  ClassificationProduct,
+} = require("../models");
 const { v4: uuidv4 } = require("uuid");
 const moment = require("moment");
 const { Op, where } = require("sequelize");
@@ -6,9 +16,15 @@ const crypto = require("crypto");
 const PayOS = require("@payos/node"); //  Dùng SDK
 require("dotenv").config();
 const { createOrderInternal } = require("../controllers/order.controllers");
-const { calculateFeeFromProfileV2 } = require("../controllers/delivery.controllers");
-const { createOrderDetailInternal } = require("../controllers/orderDetail.controllers");
-const { getTransactionFromPayOSByOrderCode } = require("../middlewares/payment.midedlewares");
+const {
+  calculateFeeFromProfileV2,
+} = require("../controllers/delivery.controllers");
+const {
+  createOrderDetailInternal,
+} = require("../controllers/orderDetail.controllers");
+const {
+  getTransactionFromPayOSByOrderCode,
+} = require("../middlewares/payment.midedlewares");
 
 const payOS = new PayOS(
   process.env.PAYOS_CLIENT_ID,
@@ -25,12 +41,15 @@ exports.createPayOSLink = async (req, res) => {
       return res.status(400).json({ message: "Thiếu dữ liệu đầu vào" });
     }
 
-    promotionProgramId = promotionProgramId == null ? 'PG000' : promotionProgramId;
+    const realPromotionId =
+      promotionProgramId == null ? "PG000" : promotionProgramId;
 
     // 1️ Lấy địa chỉ từ profile
     const profile = await Profile.findByPk(profileId);
     if (!profile || !profile.address) {
-      return res.status(400).json({ message: "Không tìm thấy địa chỉ giao hàng" });
+      return res
+        .status(400)
+        .json({ message: "Không tìm thấy địa chỉ giao hàng" });
     }
 
     // 2️ Tính tổng tiền hàng và gom lại thông tin chi tiết mỗi sản phẩm
@@ -41,7 +60,9 @@ exports.createPayOSLink = async (req, res) => {
       // Tìm sản phẩm theo productId
       const product = await Product.findByPk(item.productId);
       if (!product) {
-        return res.status(404).json({ message: `Không tìm thấy sản phẩm ${item.productId}` });
+        return res
+          .status(404)
+          .json({ message: `Không tìm thấy sản phẩm ${item.productId}` });
       }
 
       // Kiểm tra xem có classificationId không (bắt buộc)
@@ -54,10 +75,10 @@ exports.createPayOSLink = async (req, res) => {
       // Tính tổng tiền và gom lại item chi tiết
       amount += product.price * item.quantity;
       fullItems.push({
-        ...item, price: product.price, // thêm giá để dùng cho thanh toán
+        ...item,
+        price: product.price, // thêm giá để dùng cho thanh toán
       });
     }
-
 
     // 3 Áp dụng khuyến mãi nếu có
     let discount = 0;
@@ -69,7 +90,7 @@ exports.createPayOSLink = async (req, res) => {
     let validCondition2 = true;
     let isValidPromo = false;
 
-    if (promotionProgramId) {
+    if (realPromotionId) {
       promotion = await PromotionProgram.findByPk(promotionProgramId);
 
       const hasCondition1 = promotion?.condition1 !== null;
@@ -91,7 +112,9 @@ exports.createPayOSLink = async (req, res) => {
         (noConditions || (validCondition1 && validCondition2));
 
       if (!isValidPromo) {
-        return res.status(400).json({ message: "Chương trình khuyến mãi không hợp lệ" });
+        return res
+          .status(400)
+          .json({ message: "Chương trình khuyến mãi không hợp lệ" });
       }
 
       discount = amount * parseFloat(promotion.value);
@@ -121,7 +144,7 @@ exports.createPayOSLink = async (req, res) => {
 
     // Nếu áp dụng mã freeship (PG001) thì miễn phí ship
     let shipFee = 0;
-    if (!promotion || promotion.programId !== 'PG001') {
+    if (!promotion || promotion.programId !== "PG001") {
       shipFee = feeData.total || 0;
     }
 
@@ -163,7 +186,7 @@ exports.createPayOSLink = async (req, res) => {
     console.log(" Đã tạo chi tiết đơn hàng (OrderDetail)");
 
     // 9 Gửi yêu cầu tạo link thanh toán tới PayOS
-    const payload = {
+    let payload = {
       orderCode,
       amount: finalAmount,
       description: `ORDER=${orderId}`,
@@ -186,7 +209,9 @@ exports.createPayOSLink = async (req, res) => {
 
     if (!checkoutUrl) {
       console.error(" Không nhận được checkoutUrl:", paymentLink);
-      return res.status(500).json({ message: "Không nhận được link thanh toán" });
+      return res
+        .status(500)
+        .json({ message: "Không nhận được link thanh toán" });
     }
 
     console.log(" Tạo link thanh toán thành công:", checkoutUrl);
@@ -204,14 +229,16 @@ exports.createPayOSLink = async (req, res) => {
     });
   } catch (err) {
     console.error(" Lỗi khi tạo link thanh toán:", err);
-    return res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Lỗi hệ thống", error: err.message });
   }
 };
 
 exports.handlePayOSWebhook = async (req, res) => {
   try {
-    console.log("\n Webhook PayOS nhận:");
-    console.log(" Body:", req.body);
+    console.log("Webhook PayOS nhận:");
+    console.dir(req.body, { depth: null });
 
     const { data } = req.body;
     const rawOrderCode = data?.orderCode;
@@ -220,29 +247,34 @@ exports.handlePayOSWebhook = async (req, res) => {
     const AccountBankId = data?.counterAccountBankId;
     const AccountName = data?.counterAccountName;
     const AccountNumber = data?.counterAccountNumber;
-    const status = req.body?.code === "00" ? "PAID" : "CANCELLED";
 
-    console.log(" paymentId:", paymentId);
-    console.log(" Transaction ID:", transactionId);
-    console.log(" Status:", status);
+    // Xác định trạng thái từ webhook
+    let status = "CANCELLED";
+    const payosStatus = data?.status || data?.state || "";
+
+    if (payosStatus === "PAID") status = "PAID";
+    else if (payosStatus === "FAILED") status = "FAILED";
+
+    console.log("paymentId:", paymentId);
+    console.log("Transaction ID:", transactionId);
+    console.log("Status xác định:", status);
 
     const payment = await Payment.findByPk(paymentId);
     if (!payment) {
-      console.warn(" Không tìm thấy payment");
+      console.warn("Không tìm thấy payment");
       return res.status(404).json({ message: "Không tìm thấy payment" });
     }
 
-    // Cập nhật thông tin thanh toán
-    payment.transactionNo = transactionId || 0;
-    payment.AccountBankId = AccountBankId;
-    payment.AccountName = AccountName;
-    payment.AccountNumber = AccountNumber;
+    payment.transactionNo = transactionId || "0";
+    payment.AccountBankId = AccountBankId || null;
+    payment.AccountName = AccountName || null;
+    payment.AccountNumber = AccountNumber || null;
     await payment.save();
-    console.log(" Cập nhật transaction");
+    console.log("Cập nhật thông tin transaction");
 
     const order = await Order.findOne({ where: { paymentId } });
     if (!order) {
-      console.warn(" Không tìm thấy order theo paymentId");
+      console.warn("Không tìm thấy order theo paymentId");
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
 
@@ -263,9 +295,9 @@ exports.handlePayOSWebhook = async (req, res) => {
           const before = classification.quantity;
           classification.quantity = Math.max(0, before - item.quantity);
           await classification.save();
-          console.log(` Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`);
+          console.log(`Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`);
         } else {
-          console.warn(" Không tìm thấy classification:", item);
+          console.warn("Không tìm thấy classification:", item);
         }
       }
 
@@ -283,19 +315,19 @@ exports.handlePayOSWebhook = async (req, res) => {
             }
           );
         }
-        console.log(" Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
+        console.log("Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
       }
+
+    } else if (status === "CANCELLED") {
+      await order.update({ status: "cancel" });
+      console.log("Đơn hàng đã bị hủy (status: cancel)");
+    } else if (status === "FAILED") {
+      await order.update({ status: "fail" });
+      console.log("Thanh toán thất bại (status: fail)");
     } else {
-      console.log(" Thanh toán thất bại, không xử lý đơn hàng");
+      console.warn("Trạng thái không xác định:", status);
     }
 
-    if (status == 'CANCELLED') {
-      await order.update({ status: 'cancel' });
-    } else {
-      console.log("Cập nhật tình trạng hủy đơn hàng thất bại")
-    }
-
-    //  Trả về kết quả JSON rõ ràng để test dễ hơn
     return res.status(200).json({
       message: "Webhook đã xử lý thành công",
       orderCode: rawOrderCode,
@@ -303,13 +335,14 @@ exports.handlePayOSWebhook = async (req, res) => {
     });
 
   } catch (err) {
-    console.error(" Lỗi xử lý webhook:", err);
+    console.error("Lỗi xử lý webhook:", err);
     return res.status(500).json({
       message: "Lỗi khi xử lý webhook",
       error: err.message,
     });
   }
 };
+
 
 exports.getTransactionInfo = async (req, res) => {
   const { orderCode } = req.params;

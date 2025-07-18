@@ -1,18 +1,26 @@
-# Base image
-FROM node:18-alpine
-
-# Set working directory
+# -------- STAGE 1: Obfuscate mã nguồn --------
+FROM node:18-alpine AS obfuscator
 WORKDIR /app
-
-# Copy package files và cài đặt dependency
-COPY package*.json ./
-RUN npm install
-
-# Copy toàn bộ source code
 COPY . .
 
-# Expose port (nếu bạn dùng 5000 hoặc 3000 thì sửa lại cho đúng)
-EXPOSE 5000
+# Cài tool obfuscation và thực thi
+RUN npm install -g javascript-obfuscator && \
+    javascript-obfuscator controllers --output dist/controllers --compact true --control-flow-flattening true && \
+    javascript-obfuscator middlewares --output dist/middlewares --compact true --control-flow-flattening true && \
+    javascript-obfuscator routes --output dist/routes --compact true --control-flow-flattening true && \
+    javascript-obfuscator models --output dist/models --compact true --control-flow-flattening true && \
+    javascript-obfuscator server.js --output dist/server.js
 
-# Start app
-CMD ["node", "server.js"]
+# -------- STAGE 2: Chạy ứng dụng --------
+FROM node:18-alpine
+WORKDIR /app
+
+# 🔧 COPY lại đúng package.json từ stage trước
+COPY --from=obfuscator /app/package*.json ./
+RUN npm install --omit=dev
+
+# Copy mã obfuscated
+COPY --from=obfuscator /app/dist ./dist
+
+EXPOSE 5000
+CMD ["node", "dist/server.js"]
