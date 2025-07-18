@@ -1,66 +1,67 @@
 const { PromotionProgram, Account, Order } = require("../models");
 const { Op } = require("sequelize");
 
-// Lấy promotion programs đang hoạt động (cho role CU - Customer)
 exports.getActivePromotionPrograms = async (req, res) => {
   try {
     const currentDate = new Date();
     const { page, limit, offset } = req.pagination;
     const items = req.body.items || [];
-    const { Product } = require("../models");
+    const { Product, PromotionProgram } = require("../models");
+    const { Op } = require("sequelize");
 
     // Tính tổng amount từ items
     let amount = 0;
     if (Array.isArray(items) && items.length > 0) {
-      // Lấy giá từng sản phẩm
       const productIds = items.map((i) => i.productId);
       const products = await Product.findAll({
         where: { productId: productIds },
         attributes: ["productId", "price"],
       });
+
       const priceMap = {};
       products.forEach((p) => {
         priceMap[p.productId] = Number(p.price);
       });
+
       amount = items.reduce((sum, i) => {
         const price = priceMap[i.productId] || 0;
         return sum + price * (i.quantity || 1);
       }, 0);
     }
 
-    // Lấy tất cả promotion programs có ngày hợp lệ và status ON
-    const { count, rows: promotionPrograms } =
-      await PromotionProgram.findAndCountAll({
-        where: {
-          startDate: {
-            [Op.lte]: currentDate,
-          },
-          endDate: {
-            [Op.gte]: currentDate,
-          },
-          status: "ON",
-        },
-        limit,
-        offset,
-        order: [["startDate", "DESC"]],
-      });
+    // Lấy promotion programs còn hiệu lực và đang bật
+    const { count, rows: promotionPrograms } = await PromotionProgram.findAndCountAll({
+      where: {
+        startDate: { [Op.lte]: currentDate },
+        endDate: { [Op.gte]: currentDate },
+        status: "ON",
+      },
+      limit,
+      offset,
+      order: [["startDate", "DESC"]],
+    });
 
-    // Lọc lại theo logic điều kiện 1 và 2, đồng thời kiểm tra amount >= condition1 nếu có
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday
-    const validPromos = promotionPrograms.filter((promo) => {
-      const hasCondition1 =
-        promo.condition1 !== null && promo.condition1 !== undefined;
-      const hasCondition2 =
-        promo.condition2 !== null && promo.condition2 !== undefined;
+    // Loại bỏ program có ID 'PG000'
+    const filteredPromos = promotionPrograms.filter(promo => promo.programId !== "PG000");
+
+    // Lọc theo điều kiện
+    const currentDay = currentDate.getDay(); // 0 = Sunday
+
+    const validPromos = filteredPromos.filter((promo) => {
+      const hasCondition1 = promo.condition1 !== null && promo.condition1 !== undefined;
+      const hasCondition2 = promo.condition2 !== null && promo.condition2 !== undefined;
+
       const validCondition1 = hasCondition1 ? amount >= promo.condition1 : true;
       const validCondition2 = hasCondition2
         ? promo.condition2.split(",").map(Number).includes(currentDay)
         : true;
+
       const noConditions = !hasCondition1 && !hasCondition2;
+
       return noConditions || (validCondition1 && validCondition2);
     });
 
+    // Trả kết quả
     res.json({
       message: "Lấy danh sách promotion programs đang hoạt động thành công",
       data: {
@@ -82,6 +83,7 @@ exports.getActivePromotionPrograms = async (req, res) => {
     });
   }
 };
+
 
 // Lấy tất cả promotion programs có status ON (cho role OS)
 exports.getOnPromotionProgramsForOS = async (req, res) => {
