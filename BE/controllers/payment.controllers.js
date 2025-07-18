@@ -318,16 +318,7 @@ exports.handlePayOSWebhook = async (req, res) => {
         console.log("Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
       }
 
-    } else if (status === "CANCELLED") {
-      await order.update({ status: "cancel" });
-      console.log("Đơn hàng đã bị hủy (status: cancel)");
-    } else if (status === "FAILED") {
-      await order.update({ status: "fail" });
-      console.log("Thanh toán thất bại (status: fail)");
-    } else {
-      console.warn("Trạng thái không xác định:", status);
     }
-
     return res.status(200).json({
       message: "Webhook đã xử lý thành công",
       orderCode: rawOrderCode,
@@ -358,5 +349,23 @@ exports.getTransactionInfo = async (req, res) => {
       message: result.message,
       error: result.error,
     });
+  }
+};
+
+exports.cancelOrderByClient = async (req, res) => {
+  const { orderCode } = req.params;
+  const paymentId = `PM${orderCode}`;
+
+  try {
+    const order = await Order.findOne({ where: { paymentId } });
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+    }
+
+    await order.update({ status: "cancel" });
+    return res.status(200).json({ message: "Đơn hàng đã được huỷ thành công" });
+  } catch (err) {
+    console.error("Lỗi hủy đơn hàng:", err);
+    return res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
   }
 };
