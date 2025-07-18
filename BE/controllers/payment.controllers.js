@@ -1,7 +1,7 @@
 const { Payment, Order, OrderDetail, Cart, CartItem, Product, PromotionProgram, Profile, ClassificationProduct } = require("../models");
 const { v4: uuidv4 } = require("uuid");
 const moment = require("moment");
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const crypto = require("crypto");
 const PayOS = require("@payos/node"); //  Dùng SDK
 require("dotenv").config();
@@ -24,6 +24,8 @@ exports.createPayOSLink = async (req, res) => {
     if (!profileId || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: "Thiếu dữ liệu đầu vào" });
     }
+
+    promotionProgramId = promotionProgramId == null ? 'PG000' : promotionProgramId;
 
     // 1️ Lấy địa chỉ từ profile
     const profile = await Profile.findByPk(profileId);
@@ -218,7 +220,7 @@ exports.handlePayOSWebhook = async (req, res) => {
     const AccountBankId = data?.counterAccountBankId;
     const AccountName = data?.counterAccountName;
     const AccountNumber = data?.counterAccountNumber;
-    const status = req.body?.code === "00" ? "PAID" : "FAILED";
+    const status = req.body?.code === "00" ? "PAID" : "CANCELLED";
 
     console.log(" paymentId:", paymentId);
     console.log(" Transaction ID:", transactionId);
@@ -285,6 +287,12 @@ exports.handlePayOSWebhook = async (req, res) => {
       }
     } else {
       console.log(" Thanh toán thất bại, không xử lý đơn hàng");
+    }
+
+    if (status == 'CANCELLED') {
+      await order.update({ status: 'cancel' });
+    } else {
+      console.log("Cập nhật tình trạng hủy đơn hàng thất bại")
     }
 
     //  Trả về kết quả JSON rõ ràng để test dễ hơn
