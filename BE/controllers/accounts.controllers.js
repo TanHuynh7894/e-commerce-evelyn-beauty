@@ -431,6 +431,23 @@ const deleteAccount = async (req, res) => {
   }
 };
 
+const getAllAccountsCU = async (req, res) => {
+  try {
+    const accounts = await Account.findAll({
+      where: {
+        role: 'CU', // lọc các role là OS hoặc SF
+        status: "ON", // chỉ lấy những tài khoản đang hoạt động
+      },
+    });
+    console.log("Danh sách accountId:", accounts.map(a => a.accountId));
+
+    res.json({ accounts });
+  } catch (err) {
+    console.error("Lỗi khi lấy danh sách accounts:", err);
+    res.status(500).json({ message: "Lỗi lấy danh sách account" });
+  }
+};
+
 module.exports = {
   loginAccount,
   registerAccount,
@@ -444,4 +461,5 @@ module.exports = {
   getAllAccounts,
   updateAccount,
   deleteAccount,
+  getAllAccountsCU,
 };

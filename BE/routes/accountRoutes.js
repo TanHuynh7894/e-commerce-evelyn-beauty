@@ -117,5 +117,6 @@ router.delete(
   requireRole("OS"),
   deleteAccount
 );
+router.get("/all/cu",verifyToken,requireRole("OS","SF"),accountController.getAllAccountsCU);
 
 module.exports = router;
