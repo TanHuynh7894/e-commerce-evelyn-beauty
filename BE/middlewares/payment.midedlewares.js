@@ -28,7 +28,7 @@ const getTransactionFromPayOSByOrderCode = async (orderCode) => {
             message: "Lấy thông tin giao dịch thành công"
         };
     } catch (error) {
-        console.error("❌ Lỗi lấy giao dịch từ PayOS:", error.response?.data || error.message);
+        console.error(" Lỗi lấy giao dịch từ PayOS:", error.response?.data || error.message);
         return {
             success: false,
             message: "Không lấy được thông tin giao dịch",

@@ -5,7 +5,7 @@ const { verifyToken, requireRole } = require('../middlewares/auth');
 
 // Tạo mã QR cho đơn hàng cụ thể
 router.post('/create-payos', verifyToken, requireRole('CU'), paymentController.createPayOSLink);
-router.all('/payos/webhook', async (req, res) => {
+router.post('/payos/webhook', async (req, res) => {
   try {
     await paymentController.handlePayOSWebhook(req, res);
   } catch (err) {
