@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const deliveryController = require("../controllers/delivery.controllers");
-const { verifyToken } = require("../middlewares/auth");
+const { verifyToken, requireRole } = require("../middlewares/auth");
 
 // Lấy danh sách tỉnh/thành
 router.get("/provinces", deliveryController.getProvinces);
@@ -29,6 +29,7 @@ router.post(
 router.post(
   "/create-order-ghn-from-order",
   verifyToken,
+  requireRole("OS", "SF"),
   deliveryController.createOrderGhnFromOrder
 );
 // Tính phí vận chuyển từ address (test calculateFeeFromProfileV2)
@@ -63,5 +64,8 @@ router.get(
   verifyToken,
   deliveryController.getWardsByDistricts
 );
+
+// API trả về link tracking GHN
+router.post("/ghn-tracking-link", deliveryController.getGhnTrackingLink);
 
 module.exports = router;

@@ -447,14 +447,14 @@ module.exports = {
       const { Order, Profile, OrderDetail, Product } = require("../models");
 
       /* 1. LẤY DỮ LIỆU ĐƠN & PROFILE */
-      const order = await Order.findOne({ where: { orderId, accountId } });
+      const order = await Order.findOne({ where: { orderId } });
       if (!order)
         return res
           .status(404)
           .json({ success: false, message: "Không tìm thấy order" });
 
       const profile = await Profile.findOne({
-        where: { profileId: order.profileId, accountId, status: "ON" },
+        where: { profileId: order.profileId, status: "ON" },
       });
       if (!profile || !profile.address)
         return res.status(404).json({
@@ -615,12 +615,17 @@ module.exports = {
       // Lưu order_code vào bảng delivery với deliveryId mới
       const order_code = response.data.data?.order_code;
       if (order_code) {
-        const { Delivery } = require("../models");
+        const { Delivery, Order } = require("../models");
         const newDeliveryId = "DL" + Date.now();
         await Delivery.create({
           deliveryId: newDeliveryId,
           transaction_no: order_code,
         });
+        // Update order status to 'delivered' và accountId
+        await Order.update(
+          { status: "delivered", accountId: req.user?.accountId },
+          { where: { orderId } }
+        );
       }
 
       /* 7. TRẢ KẾT QUẢ */
@@ -833,3 +838,19 @@ async function calculateFeeFromProfileV2(
 }
 
 module.exports.calculateFeeFromProfileV2 = calculateFeeFromProfileV2;
+
+// API: Nhận vào transaction_no (order_code) và trả về link tracking GHN
+async function getGhnTrackingLink(req, res) {
+  const { transaction_no } = req.body;
+  if (!transaction_no) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Thiếu transaction_no" });
+  }
+  const link = `https://donhang.ghn.vn/?order_code=${encodeURIComponent(
+    transaction_no
+  )}`;
+  return res.json({ success: true, link });
+}
+
+module.exports.getGhnTrackingLink = getGhnTrackingLink;
