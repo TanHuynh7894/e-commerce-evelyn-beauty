@@ -19,7 +19,7 @@ const {
 } = require("../controllers/accounts.controllers");
 
 // OTP routes
-router.post("/verify-otp", accountController.verifyOtp);
+router.post("/verify-otp", accountController.verifyOtpUniversal);
 
 // Auth routes
 router.post("/login", validateEmail, accountController.loginAccount);
@@ -125,6 +125,6 @@ router.get("/all/cu",verifyToken,requireRole("OS","SF"),accountController.getAll
 // Thêm route tạo staff (chỉ OS)
 router.post("/create-staff", verifyToken, requireRole("OS"), createStaffAccount);
 router.post("/change-password", changePassword);
-router.post("/verify-otp-change-password", verifyOtpChangePassword);
+// router.post("/verify-otp-change-password", verifyOtpChangePassword);
 
 module.exports = router;

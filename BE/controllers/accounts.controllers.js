@@ -15,7 +15,7 @@ const generateToken = (account) => {
       role: account.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "1h" }
   );
 };
 
@@ -43,7 +43,7 @@ const loginAccount = async (req, res) => {
     if (isDefault) {
       return res.status(200).json({
         requireChangePassword: true,
-        message: "Bạn cần đổi mật khẩu mới để tiếp tục sử dụng hệ thống."
+        message: "Bạn cần đổi mật khẩu mới để tiếp tục sử dụng hệ thống.",
       });
     }
 
@@ -69,7 +69,9 @@ const changePassword = async (req, res) => {
   const { email, oldPassword, newPassword } = req.body;
 
   try {
-    const account = await Account.findOne({ where: { email: email.trim().toLowerCase() } });
+    const account = await Account.findOne({
+      where: { email: email.trim().toLowerCase() },
+    });
     if (!account) {
       return res.status(404).json({ message: "Tài khoản không tồn tại" });
     }
@@ -77,12 +79,23 @@ const changePassword = async (req, res) => {
     const isMatch = await bcrypt.compare(oldPassword, account.password);
     const isDefault = await bcrypt.compare("12345678", account.password);
     if (!isMatch || !isDefault) {
-      return res.status(400).json({ message: "Chỉ đổi mật khẩu khi đang dùng mật khẩu mặc định và nhập đúng mật khẩu cũ" });
+      return res
+        .status(400)
+        .json({
+          message:
+            "Chỉ đổi mật khẩu khi đang dùng mật khẩu mặc định và nhập đúng mật khẩu cũ",
+        });
     }
     // Kiểm tra độ mạnh password mới
-    const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    const strongRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
     if (!strongRegex.test(newPassword)) {
-      return res.status(400).json({ message: "Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt" });
+      return res
+        .status(400)
+        .json({
+          message:
+            "Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt",
+        });
     }
     // Đổi password, lưu vào DB
     const hashed = await bcrypt.hash(newPassword, 10);
@@ -94,45 +107,50 @@ const changePassword = async (req, res) => {
     global.otpChangePassword[email] = {
       otp,
       expiredAt: Date.now() + 10 * 60 * 1000, // 10 phút
-      accountId: account.accountId
+      accountId: account.accountId,
     };
     await sendOtpEmail(email, `Mã OTP xác thực đổi mật khẩu: ${otp}`);
-    return res.status(200).json({ message: "Đã đổi mật khẩu. Vui lòng xác thực OTP gửi về email để hoàn tất." });
+    return res
+      .status(200)
+      .json({
+        message:
+          "Đã đổi mật khẩu. Vui lòng xác thực OTP gửi về email để hoàn tất.",
+      });
   } catch (err) {
     console.error("Lỗi đổi mật khẩu:", err);
     res.status(500).json({ message: "Lỗi đổi mật khẩu" });
   }
 };
 
-// Xác thực OTP sau đổi mật khẩu
-const verifyOtpChangePassword = async (req, res) => {
-  const { email, otp } = req.body;
-  const record = global.otpChangePassword?.[email];
-  if (!record) {
-    return res.status(400).json({ message: "Không có yêu cầu xác thực OTP nào" });
-  }
-  if (Date.now() > record.expiredAt) {
-    delete global.otpChangePassword[email];
-    return res.status(410).json({ message: "Mã OTP đã hết hạn" });
-  }
-  if (record.otp !== otp) {
-    return res.status(401).json({ message: "Mã OTP không đúng" });
-  }
-  // Xác thực thành công, xóa OTP tạm
-  delete global.otpChangePassword[email];
-  // Tìm account và trả về token
-  const account = await Account.findOne({ where: { accountId: record.accountId } });
-  if (!account) {
-    return res.status(404).json({ message: "Tài khoản không tồn tại" });
-  }
-  const token = generateToken(account);
-  const { password: _, ...accountSafe } = account.get({ plain: true });
-  return res.status(200).json({
-    message: "Xác thực OTP thành công. Đăng nhập thành công!",
-    account: accountSafe,
-    token
-  });
-};
+// // Xác thực OTP sau đổi mật khẩu
+// const verifyOtpChangePassword = async (req, res) => {
+//   const { email, otp } = req.body;
+//   const record = global.otpChangePassword?.[email];
+//   if (!record) {
+//     return res.status(400).json({ message: "Không có yêu cầu xác thực OTP nào" });
+//   }
+//   if (Date.now() > record.expiredAt) {
+//     delete global.otpChangePassword[email];
+//     return res.status(410).json({ message: "Mã OTP đã hết hạn" });
+//   }
+//   if (record.otp !== otp) {
+//     return res.status(401).json({ message: "Mã OTP không đúng" });
+//   }
+//   // Xác thực thành công, xóa OTP tạm
+//   delete global.otpChangePassword[email];
+//   // Tìm account và trả về token
+//   const account = await Account.findOne({ where: { accountId: record.accountId } });
+//   if (!account) {
+//     return res.status(404).json({ message: "Tài khoản không tồn tại" });
+//   }
+//   const token = generateToken(account);
+//   const { password: _, ...accountSafe } = account.get({ plain: true });
+//   return res.status(200).json({
+//     message: "Xác thực OTP thành công. Đăng nhập thành công!",
+//     account: accountSafe,
+//     token
+//   });
+// };
 
 const registerAccount = async (req, res) => {
   const { name, email, password } = req.body;
@@ -225,36 +243,73 @@ const googleLogin = async (req, res) => {
     return res.status(401).json({ message: "Token Google không hợp lệ" });
   }
 };
-
-const verifyOtp = async (req, res) => {
+// Xác thực OTP đa mục đích (đăng ký, đổi mật khẩu)
+const verifyOtpUniversal = async (req, res) => {
   const { email, otp } = req.body;
-  const record = global.tempOtps?.[email];
-
-  if (!record)
-    return res.status(400).json({ message: "Không tìm thấy mã OTP" });
-  if (Date.now() > record.expiredAt)
-    return res.status(410).json({ message: "Mã đã hết hạn" });
-  if (record.code !== otp)
-    return res.status(401).json({ message: "Mã không đúng" });
-
-  const newAccountID = "AC" + Date.now();
-  const account = await Account.create({
-    accountId: newAccountID,
-    name: record.name,
-    email,
-    password: await bcrypt.hash(record.password, 10),
-    role: "CU",
-    status: "ON",
+  let record, account;
+  const accountNE = await Account.findOne({
+    where: { email: email },
+    attributes: ["accountId"],
   });
 
-  // Tạo cart rỗng cho account mới nếu chưa có (gọi hàm từ cart.controllers)
-  await createCartIfNotExists(newAccountID);
+  if (!accountNE) {
+    record = global.tempOtps?.[email];
+    if (!record)
+      return res.status(400).json({ message: "Không tìm thấy mã OTP" });
+    if (Date.now() > record.expiredAt) {
+      delete global.tempOtps[email];
+      return res.status(410).json({ message: "Mã đã hết hạn" });
+    }
+    if (record.code !== otp)
+      return res.status(401).json({ message: "Mã không đúng" });
 
-  delete global.tempOtps[email];
+    const newAccountID = "AC" + Date.now();
+    account = await Account.create({
+      accountId: newAccountID,
+      name: record.name,
+      email,
+      password: await bcrypt.hash(record.password, 10),
+      role: "CU",
+      status: "ON",
+    });
 
-  res.status(201).json({ message: "Đăng ký thành công", account });
+    await createCartIfNotExists(newAccountID);
+    delete global.tempOtps[email];
+    return res.status(201).json({ message: "Đăng ký thành công", account });
+  } else {
+    record = global.otpChangePassword?.[email];
+    if (!record) {
+      return res
+        .status(400)
+        .json({ message: "Không có yêu cầu xác thực OTP nào" });
+    }
+    if (Date.now() > record.expiredAt) {
+      delete global.otpChangePassword[email];
+      return res.status(410).json({ message: "Mã OTP đã hết hạn" });
+    }
+    if (record.otp !== otp) {
+      return res.status(401).json({ message: "Mã OTP không đúng" });
+    }
+    // Xác thực thành công, xóa OTP tạm
+    delete global.otpChangePassword[email];
+    // Tìm account và trả về token
+    const account = await Account.findOne({
+      where: { accountId: record.accountId },
+    });
+    if (!account) {
+      return res.status(404).json({ message: "Tài khoản không tồn tại" });
+    }
+    const token = generateToken(account);
+    const { password: _, ...accountSafe } = account.get({ plain: true });
+    return res.status(200).json({
+      message: "Xác thực OTP thành công. Đăng nhập thành công!",
+      account: accountSafe,
+      token,
+    });
+  }
+
+  // return res.status(400).json({ message: "Loại xác thực không hợp lệ" });
 };
-
 const logout = (req, res, next) => {
   req.logout(function (err) {
     if (err) return next(err);
@@ -514,11 +569,14 @@ const getAllAccountsCU = async (req, res) => {
   try {
     const accounts = await Account.findAll({
       where: {
-        role: 'CU', // lọc các role là OS hoặc SF
+        role: "CU", // lọc các role là OS hoặc SF
         status: "ON", // chỉ lấy những tài khoản đang hoạt động
       },
     });
-    console.log("Danh sách accountId:", accounts.map(a => a.accountId));
+    console.log(
+      "Danh sách accountId:",
+      accounts.map((a) => a.accountId)
+    );
 
     res.json({ accounts });
   } catch (err) {
@@ -531,7 +589,9 @@ const createStaffAccount = async (req, res) => {
   try {
     // Kiểm tra quyền OS
     if (!req.user || req.user.role !== "OS") {
-      return res.status(403).json({ message: "Chỉ OS mới được phép tạo staff" });
+      return res
+        .status(403)
+        .json({ message: "Chỉ OS mới được phép tạo staff" });
     }
 
     const { email, name, address, gender, birthday, image, phone } = req.body;
@@ -558,7 +618,7 @@ const createStaffAccount = async (req, res) => {
       address,
       gender,
       birthday,
-      image
+      image,
     });
 
     // Tạo profile cho staff
@@ -571,12 +631,12 @@ const createStaffAccount = async (req, res) => {
       address,
       gender,
       birthday,
-      image
+      image,
     });
 
     res.status(201).json({
       message: "Tạo tài khoản staff thành công (đã tạo profile)",
-      account: newAccount
+      account: newAccount,
     });
   } catch (err) {
     console.error("Lỗi tạo staff:", err);
@@ -588,7 +648,7 @@ module.exports = {
   loginAccount,
   registerAccount,
   googleLogin,
-  verifyOtp,
+  verifyOtpUniversal,
   logout,
   forgotPassword,
   resetPassword,
@@ -600,5 +660,5 @@ module.exports = {
   getAllAccountsCU,
   createStaffAccount,
   changePassword,
-  verifyOtpChangePassword,
+  // verifyOtpChangePassword,
 };
