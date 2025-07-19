@@ -1,6 +1,6 @@
 const { OAuth2Client } = require("google-auth-library");
 const bcrypt = require("bcrypt");
-const { Account } = require("../models");
+const { Account, Profile } = require("../models");
 const jwt = require("jsonwebtoken");
 const { sendOtpEmail } = require("../utils/mails");
 const { createCartIfNotExists } = require("./cart.controllers");
@@ -38,6 +38,15 @@ const loginAccount = async (req, res) => {
       return res.status(401).json({ message: "Mật khẩu không đúng" });
     }
 
+    // Kiểm tra nếu password là mặc định 12345678
+    const isDefault = await bcrypt.compare("12345678", account.password);
+    if (isDefault) {
+      return res.status(200).json({
+        requireChangePassword: true,
+        message: "Bạn cần đổi mật khẩu mới để tiếp tục sử dụng hệ thống."
+      });
+    }
+
     // Tạo cart nếu chưa có (gọi hàm từ cart.controllers)
     await createCartIfNotExists(account.accountId);
 
@@ -53,6 +62,76 @@ const loginAccount = async (req, res) => {
     console.error("Lỗi đăng nhập:", err);
     res.status(500).json({ message: "Đăng nhập thất bại" });
   }
+};
+
+// Đổi mật khẩu khi password mặc định
+const changePassword = async (req, res) => {
+  const { email, oldPassword, newPassword } = req.body;
+
+  try {
+    const account = await Account.findOne({ where: { email: email.trim().toLowerCase() } });
+    if (!account) {
+      return res.status(404).json({ message: "Tài khoản không tồn tại" });
+    }
+    // Kiểm tra oldPassword đúng và là mặc định
+    const isMatch = await bcrypt.compare(oldPassword, account.password);
+    const isDefault = await bcrypt.compare("12345678", account.password);
+    if (!isMatch || !isDefault) {
+      return res.status(400).json({ message: "Chỉ đổi mật khẩu khi đang dùng mật khẩu mặc định và nhập đúng mật khẩu cũ" });
+    }
+    // Kiểm tra độ mạnh password mới
+    const strongRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
+    if (!strongRegex.test(newPassword)) {
+      return res.status(400).json({ message: "Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt" });
+    }
+    // Đổi password, lưu vào DB
+    const hashed = await bcrypt.hash(newPassword, 10);
+    account.password = hashed;
+    await account.save();
+    // Gửi OTP về email
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    global.otpChangePassword = global.otpChangePassword || {};
+    global.otpChangePassword[email] = {
+      otp,
+      expiredAt: Date.now() + 10 * 60 * 1000, // 10 phút
+      accountId: account.accountId
+    };
+    await sendOtpEmail(email, `Mã OTP xác thực đổi mật khẩu: ${otp}`);
+    return res.status(200).json({ message: "Đã đổi mật khẩu. Vui lòng xác thực OTP gửi về email để hoàn tất." });
+  } catch (err) {
+    console.error("Lỗi đổi mật khẩu:", err);
+    res.status(500).json({ message: "Lỗi đổi mật khẩu" });
+  }
+};
+
+// Xác thực OTP sau đổi mật khẩu
+const verifyOtpChangePassword = async (req, res) => {
+  const { email, otp } = req.body;
+  const record = global.otpChangePassword?.[email];
+  if (!record) {
+    return res.status(400).json({ message: "Không có yêu cầu xác thực OTP nào" });
+  }
+  if (Date.now() > record.expiredAt) {
+    delete global.otpChangePassword[email];
+    return res.status(410).json({ message: "Mã OTP đã hết hạn" });
+  }
+  if (record.otp !== otp) {
+    return res.status(401).json({ message: "Mã OTP không đúng" });
+  }
+  // Xác thực thành công, xóa OTP tạm
+  delete global.otpChangePassword[email];
+  // Tìm account và trả về token
+  const account = await Account.findOne({ where: { accountId: record.accountId } });
+  if (!account) {
+    return res.status(404).json({ message: "Tài khoản không tồn tại" });
+  }
+  const token = generateToken(account);
+  const { password: _, ...accountSafe } = account.get({ plain: true });
+  return res.status(200).json({
+    message: "Xác thực OTP thành công. Đăng nhập thành công!",
+    account: accountSafe,
+    token
+  });
 };
 
 const registerAccount = async (req, res) => {
@@ -448,6 +527,63 @@ const getAllAccountsCU = async (req, res) => {
   }
 };
 
+const createStaffAccount = async (req, res) => {
+  try {
+    // Kiểm tra quyền OS
+    if (!req.user || req.user.role !== "OS") {
+      return res.status(403).json({ message: "Chỉ OS mới được phép tạo staff" });
+    }
+
+    const { email, name, address, gender, birthday, image, phone } = req.body;
+
+    if (!email || !name || !address || !gender || !birthday) {
+      return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+    }
+
+    // Kiểm tra email đã tồn tại chưa
+    const existing = await Account.findOne({ where: { email } });
+    if (existing) {
+      return res.status(409).json({ message: "Email đã tồn tại" });
+    }
+
+    const hashedPassword = await bcrypt.hash("12345678", 10);
+    const newAccountId = "AC" + Date.now();
+    const newAccount = await Account.create({
+      accountId: newAccountId,
+      name,
+      email,
+      password: hashedPassword,
+      role: "SF",
+      status: "ON",
+      address,
+      gender,
+      birthday,
+      image
+    });
+
+    // Tạo profile cho staff
+    const profileId = "PF" + Date.now();
+    await Profile.create({
+      profileId,
+      accountId: newAccountId,
+      name,
+      phone: phone || "",
+      address,
+      gender,
+      birthday,
+      image
+    });
+
+    res.status(201).json({
+      message: "Tạo tài khoản staff thành công (đã tạo profile)",
+      account: newAccount
+    });
+  } catch (err) {
+    console.error("Lỗi tạo staff:", err);
+    res.status(500).json({ message: "Lỗi tạo staff" });
+  }
+};
+
 module.exports = {
   loginAccount,
   registerAccount,
@@ -462,4 +598,7 @@ module.exports = {
   updateAccount,
   deleteAccount,
   getAllAccountsCU,
+  createStaffAccount,
+  changePassword,
+  verifyOtpChangePassword,
 };

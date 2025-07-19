@@ -13,6 +13,9 @@ const {
   getAllAccounts,
   updateAccount,
   deleteAccount,
+  createStaffAccount,
+  changePassword,
+  verifyOtpChangePassword,
 } = require("../controllers/accounts.controllers");
 
 // OTP routes
@@ -118,5 +121,10 @@ router.delete(
   deleteAccount
 );
 router.get("/all/cu",verifyToken,requireRole("OS","SF"),accountController.getAllAccountsCU);
+
+// Thêm route tạo staff (chỉ OS)
+router.post("/create-staff", verifyToken, requireRole("OS"), createStaffAccount);
+router.post("/change-password", changePassword);
+router.post("/verify-otp-change-password", verifyOtpChangePassword);
 
 module.exports = router;
