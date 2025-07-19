@@ -34,7 +34,7 @@ const payOS = new PayOS(
 
 exports.createPayOSLink = async (req, res) => {
   try {
-    const accountId = req.user.accountId;
+    const accountId = "doi xac nhan";
     const { profileId, promotionProgramId, items } = req.body;
 
     if (!profileId || !Array.isArray(items) || items.length === 0) {
@@ -190,7 +190,7 @@ exports.createPayOSLink = async (req, res) => {
       orderCode,
       amount: finalAmount,
       description: `ORDER=${orderId}`,
-      cancelUrl: process.env.PAYOS_CANCEL_URL+'/'+orderCode,
+      cancelUrl: process.env.PAYOS_CANCEL_URL + "/" + orderCode,
       returnUrl: process.env.PAYOS_RETURN_URL,
       items: fullItems.map((i) => ({
         name: `SP-${i.productId}`,
@@ -295,13 +295,17 @@ exports.handlePayOSWebhook = async (req, res) => {
           const before = classification.quantity;
           classification.quantity = Math.max(0, before - item.quantity);
           await classification.save();
-          console.log(`Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`);
+          console.log(
+            `Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`
+          );
         } else {
           console.warn("Không tìm thấy classification:", item);
         }
       }
 
-      const cart = await Cart.findOne({ where: { accountId: order.accountId } });
+      const cart = await Cart.findOne({
+        where: { accountId: order.accountId },
+      });
       if (cart) {
         for (const item of orderDetails) {
           await CartItem.update(
@@ -317,14 +321,12 @@ exports.handlePayOSWebhook = async (req, res) => {
         }
         console.log("Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
       }
-
     }
     return res.status(200).json({
       message: "Webhook đã xử lý thành công",
       orderCode: rawOrderCode,
       status,
     });
-
   } catch (err) {
     console.error("Lỗi xử lý webhook:", err);
     return res.status(500).json({
@@ -333,7 +335,6 @@ exports.handlePayOSWebhook = async (req, res) => {
     });
   }
 };
-
 
 exports.getTransactionInfo = async (req, res) => {
   const { orderCode } = req.params;
@@ -366,6 +367,8 @@ exports.cancelOrderByClient = async (req, res) => {
     return res.status(200).json({ message: "Đơn hàng đã được huỷ thành công" });
   } catch (err) {
     console.error("Lỗi hủy đơn hàng:", err);
-    return res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Lỗi hệ thống", error: err.message });
   }
 };

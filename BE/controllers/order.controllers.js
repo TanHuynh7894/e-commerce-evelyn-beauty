@@ -1,3 +1,4 @@
+const { where } = require("sequelize");
 const {
   Order,
   OrderDetail,
@@ -96,21 +97,41 @@ exports.createOrderInternal = async ({
 
 exports.getCustomerOrders = async (req, res) => {
   try {
-    const orders = await Order.findAll({
+    // Bước 1: Lấy tất cả profile theo accountId
+    const profiles = await Profile.findAll({
       where: { accountId: req.user.accountId },
+    });
+
+    // Bước 2: Lấy danh sách profileId
+    const profileIds = profiles.map((p) => p.profileId);
+
+    if (profileIds.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy hồ sơ nào" });
+    }
+
+    // Bước 3: Lấy tất cả đơn hàng thuộc các profile đó + delivery + details + product
+    const orders = await Order.findAll({
+      where: { profileId: profileIds },
       include: [
         {
           model: OrderDetail,
           as: "details",
           include: [{ model: Product, as: "product" }],
         },
+        {
+          model: Delivery,
+          as: "delivery",
+          attributes: ["transaction_no"],
+        },
       ],
     });
 
+    // Bước 4: Chuyển dữ liệu thành dạng dễ đọc
     const result = orders.map((order) => ({
       orderId: order.orderId,
       date: order.date,
       status: order.status,
+      transactionNo: order.delivery?.transaction_no || null,
       items: order.details.map((d) => ({
         productName: d.product.name,
         price: d.product.price,
