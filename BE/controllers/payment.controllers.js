@@ -34,7 +34,7 @@ const payOS = new PayOS(
 
 exports.createPayOSLink = async (req, res) => {
   try {
-    const accountId = "doi xac nhan";
+    const accountId = "AC000";
     const { profileId, promotionProgramId, items } = req.body;
 
     if (!profileId || !Array.isArray(items) || items.length === 0) {
