@@ -14,7 +14,7 @@ const { canAccessSupport } = require("../middlewares/support.middlewares");
 router.use(verifyToken);
 
 // Customer tạo support
-router.post("/", createSupport);
+router.post("/", requireRole("CU"),createSupport);
 
 // Lấy tất cả support của mình
 router.get("/", getAllSupports);

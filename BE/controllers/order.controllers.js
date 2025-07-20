@@ -8,6 +8,7 @@ const {
   PromotionProgram,
   Account,
   Payment,
+  Classification,
 } = require("../models");
 const { nanoid } = require("nanoid");
 
@@ -154,11 +155,74 @@ exports.getAllOrders = async (req, res) => {
         {
           model: OrderDetail,
           as: "details",
-          include: [{ model: Product, as: "product" }],
+          include: [
+            {
+              model: Product,
+              as: "product",
+            },
+            {
+              model: Classification,
+              as: "classification",
+              attributes: ["name"], // lấy tên phân loại
+            },
+          ],
+        },
+        {
+          model: PromotionProgram,
+          as: "promotionProgram", // phải đúng với Order.associate
+          attributes: ["value"],
+        },
+        {
+          model: Account,
+          as: "account",
+          attributes: ["name"],
+        },
+        {
+          model: Payment,
+          as: "payment",
+          attributes: ["transaction_no"],
+        },
+        {
+          model: Delivery,
+          as: "delivery",
+          attributes: ["transaction_no"],
+        },
+        {
+          model: Profile,
+          as: "profile",
+          attributes: ["name", "phone", "address"],
         },
       ],
     });
-    res.json({ orders });
+
+    // Tính tổng đơn hàng, chiết khấu, tổng thanh toán
+    const enrichedOrders = orders.map((order) => {
+      let totalBefore = 0;
+
+      if (order.details && Array.isArray(order.details)) {
+        totalBefore = order.details.reduce((sum, detail) => {
+          const price = Number(detail.product?.price) || 0;
+          const quantity = Number(detail.quantity) || 0;
+          return sum + price * quantity;
+        }, 0);
+      }
+
+      const shipFee = Number(order.shipFee) || 0;
+      totalBefore += shipFee;
+
+      const programValue = Number(order.promotionProgram?.value) || 0;
+      const discount = totalBefore * programValue;
+      const totalFinal = totalBefore - discount;
+
+      return {
+        ...order.toJSON(),
+        total_before: totalBefore,
+        discount: Number(discount.toFixed(2)),
+        total_final: Number(totalFinal.toFixed(2)),
+      };
+    });
+
+    res.json({ orders: enrichedOrders });
   } catch (err) {
     console.error("Lỗi lấy all orders:", err);
     res.status(500).json({ message: "Không thể lấy đơn hàng" });
