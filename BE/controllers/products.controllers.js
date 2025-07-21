@@ -15,6 +15,7 @@ const path = require("path");
 exports.getAllProducts = async (req, res) => {
   try {
     const products = await Product.findAll({
+      where: { status: "ON" },
       attributes: [
         "productId",
         "name",
@@ -77,6 +78,7 @@ exports.getProductsByCategory = async (req, res) => {
     }
 
     const { count, rows: products } = await Product.findAndCountAll({
+      where: { status: "ON" },
       attributes: [
         "productId",
         "name",
@@ -159,7 +161,7 @@ exports.getProductsByBrand = async (req, res) => {
 
   try {
     const { count, rows: products } = await Product.findAndCountAll({
-      where: { brand },
+      where: { brand, status: "ON" },
       attributes: [
         "productId",
         "name",
@@ -243,7 +245,7 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
     });
     const ids = productIds.map((item) => item.productId);
     const { count, rows: products } = await Product.findAndCountAll({
-      where: { productId: ids, brand },
+      where: { productId: ids, brand, status: "ON" },
       attributes: [
         "productId",
         "name",
@@ -316,6 +318,7 @@ exports.searchProducts = async (req, res) => {
         name: {
           [Op.like]: `%${keyword}%`,
         },
+        status: "ON",
       },
       attributes: [
         "productId",
@@ -840,7 +843,11 @@ exports.getProductDetail = async (req, res) => {
     const classificationLinks = await ClassificationProduct.findAll({
       where: { productId },
       include: [
-        { model: Classification, as: "classification", attributes: ["name"] },
+        {
+          model: Classification,
+          as: "classification_id",
+          attributes: ["name"],
+        },
       ],
     });
     // Log classificationId của sản phẩm được chọn

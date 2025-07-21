@@ -23,6 +23,11 @@ const Product = sequelize.define(
       type: DataTypes.STRING(20),
       field: "account_id",
     },
+    status: {
+      type: DataTypes.ENUM("ON", "OFF"),
+      allowNull: false,
+      defaultValue: "ON",
+    },
   },
   {
     tableName: "products",
