@@ -57,29 +57,59 @@ exports.createPayOSLink = async (req, res) => {
     const fullItems = [];
 
     for (const item of items) {
-      // Tìm sản phẩm theo productId
-      const product = await Product.findByPk(item.productId);
-      if (!product) {
-        return res
-          .status(404)
-          .json({ message: `Không tìm thấy sản phẩm ${item.productId}` });
-      }
+  const { productId, classificationId, quantity } = item;
 
-      // Kiểm tra xem có classificationId không (bắt buộc)
-      if (!item.classificationId) {
-        return res.status(400).json({
-          message: `Thiếu classificationId cho sản phẩm ${item.productId}`,
-        });
-      }
+  // Kiểm tra classificationId
+  if (!classificationId) {
+    stockErrors.push({
+      productId,
+      message: `Thiếu classificationId cho sản phẩm ${productId}`,
+    });
+    continue;
+  }
 
-      // Tính tổng tiền và gom lại item chi tiết
-      amount += product.price * item.quantity;
-      fullItems.push({
-        ...item,
-        price: product.price, // thêm giá để dùng cho thanh toán
-      });
-    }
+  // Lấy sản phẩm
+  const product = await Product.findByPk(productId);
+  if (!product) {
+    stockErrors.push({
+      productId,
+      message: `Không tìm thấy sản phẩm ${productId}`,
+    });
+    continue;
+  }
 
+  // Lấy tồn kho của phân loại sản phẩm
+  const stock = await ClassificationForProduct.findOne({
+    where: { productId, classificationId },
+  });
+
+  if (!stock) {
+    stockErrors.push({
+      productId,
+      classificationId,
+      message: `Không tìm thấy phân loại sản phẩm`,
+    });
+    continue;
+  }
+
+  if (stock.quantity < quantity) {
+    stockErrors.push({
+      productId,
+      classificationId,
+      available: stock.quantity,
+      requested: quantity,
+      message: `Không đủ tồn kho`,
+    });
+    continue;
+  }
+
+  // Nếu hợp lệ: thêm item vào danh sách và tính tổng tiền
+  amount += product.price * quantity;
+  fullItems.push({
+    ...item,
+    price: product.price,
+  });
+}
     // 3 Áp dụng khuyến mãi nếu có
     let discount = 0;
     let promotion = null;
