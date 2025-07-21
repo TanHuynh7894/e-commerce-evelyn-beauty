@@ -29,11 +29,11 @@ const ClassificationProduct = sequelize.define("ClassificationProduct", {
 ClassificationProduct.associate = (models) => {
   ClassificationProduct.belongsTo(models.Classification, {
     foreignKey: "classificationId",
-    as: "classification",
+    as: "classification_id",
   });
   ClassificationProduct.belongsTo(models.Product, {
     foreignKey: "productId",
-    as: "product",
+    as: "product_id",
   });
 };
 

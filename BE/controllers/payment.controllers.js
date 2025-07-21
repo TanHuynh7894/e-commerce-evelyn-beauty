@@ -57,59 +57,29 @@ exports.createPayOSLink = async (req, res) => {
     const fullItems = [];
 
     for (const item of items) {
-  const { productId, classificationId, quantity } = item;
+      // Tìm sản phẩm theo productId
+      const product = await Product.findByPk(item.productId);
+      if (!product) {
+        return res
+          .status(404)
+          .json({ message: `Không tìm thấy sản phẩm ${item.productId}` });
+      }
 
-  // Kiểm tra classificationId
-  if (!classificationId) {
-    stockErrors.push({
-      productId,
-      message: `Thiếu classificationId cho sản phẩm ${productId}`,
-    });
-    continue;
-  }
+      // Kiểm tra xem có classificationId không (bắt buộc)
+      if (!item.classificationId) {
+        return res.status(400).json({
+          message: `Thiếu classificationId cho sản phẩm ${item.productId}`,
+        });
+      }
 
-  // Lấy sản phẩm
-  const product = await Product.findByPk(productId);
-  if (!product) {
-    stockErrors.push({
-      productId,
-      message: `Không tìm thấy sản phẩm ${productId}`,
-    });
-    continue;
-  }
+      // Tính tổng tiền và gom lại item chi tiết
+      amount += product.price * item.quantity;
+      fullItems.push({
+        ...item,
+        price: product.price, // thêm giá để dùng cho thanh toán
+      });
+    }
 
-  // Lấy tồn kho của phân loại sản phẩm
-  const stock = await ClassificationForProduct.findOne({
-    where: { productId, classificationId },
-  });
-
-  if (!stock) {
-    stockErrors.push({
-      productId,
-      classificationId,
-      message: `Không tìm thấy phân loại sản phẩm`,
-    });
-    continue;
-  }
-
-  if (stock.quantity < quantity) {
-    stockErrors.push({
-      productId,
-      classificationId,
-      available: stock.quantity,
-      requested: quantity,
-      message: `Không đủ tồn kho`,
-    });
-    continue;
-  }
-
-  // Nếu hợp lệ: thêm item vào danh sách và tính tổng tiền
-  amount += product.price * quantity;
-  fullItems.push({
-    ...item,
-    price: product.price,
-  });
-}
     // 3 Áp dụng khuyến mãi nếu có
     let discount = 0;
     let promotion = null;
@@ -220,7 +190,7 @@ exports.createPayOSLink = async (req, res) => {
       orderCode,
       amount: finalAmount,
       description: `ORDER=${orderId}`,
-      cancelUrl: process.env.PAYOS_CANCEL_URL + "/" + orderCode,
+      cancelUrl: process.env.PAYOS_CANCEL_URL,
       returnUrl: process.env.PAYOS_RETURN_URL,
       items: fullItems.map((i) => ({
         name: `SP-${i.productId}`,
@@ -325,17 +295,13 @@ exports.handlePayOSWebhook = async (req, res) => {
           const before = classification.quantity;
           classification.quantity = Math.max(0, before - item.quantity);
           await classification.save();
-          console.log(
-            `Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`
-          );
+          console.log(`Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`);
         } else {
           console.warn("Không tìm thấy classification:", item);
         }
       }
 
-      const cart = await Cart.findOne({
-        where: { accountId: order.accountId },
-      });
+      const cart = await Cart.findOne({ where: { accountId: order.accountId } });
       if (cart) {
         for (const item of orderDetails) {
           await CartItem.update(
@@ -351,12 +317,14 @@ exports.handlePayOSWebhook = async (req, res) => {
         }
         console.log("Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
       }
+
     }
     return res.status(200).json({
       message: "Webhook đã xử lý thành công",
       orderCode: rawOrderCode,
       status,
     });
+
   } catch (err) {
     console.error("Lỗi xử lý webhook:", err);
     return res.status(500).json({
@@ -365,6 +333,7 @@ exports.handlePayOSWebhook = async (req, res) => {
     });
   }
 };
+
 
 exports.getTransactionInfo = async (req, res) => {
   const { orderCode } = req.params;
@@ -384,21 +353,20 @@ exports.getTransactionInfo = async (req, res) => {
 };
 
 exports.cancelOrderByClient = async (req, res) => {
-  const { orderCode } = req.params;
-  const paymentId = `PM${orderCode}`;
-
   try {
+    const { orderCode } = req.body;
+    const paymentId = `PM${orderCode}`;
+
     const order = await Order.findOne({ where: { paymentId } });
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
 
-    await order.update({ status: "cancel" });
-    return res.status(200).json({ message: "Đơn hàng đã được huỷ thành công" });
+    // Cập nhật trạng thái đơn hàng
+    await order.update({ status: 'cancel' });
+    return res.status(200).json({ message: "Đã cập nhật đơn hàng thành cancel" });
   } catch (err) {
     console.error("Lỗi hủy đơn hàng:", err);
-    return res
-      .status(500)
-      .json({ message: "Lỗi hệ thống", error: err.message });
+    return res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
   }
 };
