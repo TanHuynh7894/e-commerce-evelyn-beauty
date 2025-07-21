@@ -56,27 +56,73 @@ exports.createPayOSLink = async (req, res) => {
     let amount = 0;
     const fullItems = [];
 
+    let errors = [];
+    let stockErrors = [];
+    let successItems = [];
+
     for (const item of items) {
-      // Tìm sản phẩm theo productId
       const product = await Product.findByPk(item.productId);
       if (!product) {
-        return res
-          .status(404)
-          .json({ message: `Không tìm thấy sản phẩm ${item.productId}` });
+        errors.push({ message: `Không tìm thấy sản phẩm ${item.productId}` });
+        continue;
       }
 
-      // Kiểm tra xem có classificationId không (bắt buộc)
       if (!item.classificationId) {
-        return res.status(400).json({
+        errors.push({
           message: `Thiếu classificationId cho sản phẩm ${item.productId}`,
         });
+        continue;
       }
 
-      // Tính tổng tiền và gom lại item chi tiết
+      if (item.quantity <= 0) {
+        errors.push({
+          message: `Số lượng của sản phẩm ${item.productId} phải lớn hơn 0`,
+        });
+        continue;
+      }
+
+      const classification = await ClassificationProduct.findOne({
+        where: {
+          productId: item.productId,
+          classificationId: item.classificationId,
+        },
+      });
+
+      if (!classification) {
+        errors.push({
+          message: `Không tìm thấy phân loại sản phẩm ${item.productId}`,
+        });
+        continue;
+      }
+
+      if (item.quantity > classification.quantity) {
+        stockErrors.push({
+          productId: item.productId,
+          classificationId: item.classificationId,
+          quantity: item.quantity,
+          stock: classification.quantity,
+        });
+        continue;
+      }
+
+      // Nếu qua được tất cả kiểm tra
       amount += product.price * item.quantity;
-      fullItems.push({
+      const validItem = {
         ...item,
-        price: product.price, // thêm giá để dùng cho thanh toán
+        price: product.price,
+        stock: classification.quantity,
+      };
+      fullItems.push(validItem);
+      successItems.push(validItem);
+    }
+
+    if (stockErrors.length > 0 || errors.length > 0) {
+      return res.status(400).json({
+        message: "Một số sản phẩm không hợp lệ",
+        data: {
+          invalidItems: [...errors, ...stockErrors], // lỗi chung
+          validItems: successItems, // sản phẩm hợp lệ
+        },
       });
     }
 
@@ -295,13 +341,17 @@ exports.handlePayOSWebhook = async (req, res) => {
           const before = classification.quantity;
           classification.quantity = Math.max(0, before - item.quantity);
           await classification.save();
-          console.log(`Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`);
+          console.log(
+            `Cập nhật tồn kho: ${before} ➝ ${classification.quantity}`
+          );
         } else {
           console.warn("Không tìm thấy classification:", item);
         }
       }
 
-      const cart = await Cart.findOne({ where: { accountId: order.accountId } });
+      const cart = await Cart.findOne({
+        where: { accountId: order.accountId },
+      });
       if (cart) {
         for (const item of orderDetails) {
           await CartItem.update(
@@ -317,14 +367,12 @@ exports.handlePayOSWebhook = async (req, res) => {
         }
         console.log("Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
       }
-
     }
     return res.status(200).json({
       message: "Webhook đã xử lý thành công",
       orderCode: rawOrderCode,
       status,
     });
-
   } catch (err) {
     console.error("Lỗi xử lý webhook:", err);
     return res.status(500).json({
@@ -333,7 +381,6 @@ exports.handlePayOSWebhook = async (req, res) => {
     });
   }
 };
-
 
 exports.getTransactionInfo = async (req, res) => {
   const { orderCode } = req.params;
@@ -363,10 +410,14 @@ exports.cancelOrderByClient = async (req, res) => {
     }
 
     // Cập nhật trạng thái đơn hàng
-    await order.update({ status: 'cancel' });
-    return res.status(200).json({ message: "Đã cập nhật đơn hàng thành cancel" });
+    await order.update({ status: "cancel" });
+    return res
+      .status(200)
+      .json({ message: "Đã cập nhật đơn hàng thành cancel" });
   } catch (err) {
     console.error("Lỗi hủy đơn hàng:", err);
-    return res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
+    return res
+      .status(500)
+      .json({ message: "Lỗi hệ thống", error: err.message });
   }
 };

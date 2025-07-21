@@ -79,23 +79,19 @@ const changePassword = async (req, res) => {
     const isMatch = await bcrypt.compare(oldPassword, account.password);
     const isDefault = await bcrypt.compare("12345678", account.password);
     if (!isMatch || !isDefault) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Chỉ đổi mật khẩu khi đang dùng mật khẩu mặc định và nhập đúng mật khẩu cũ",
-        });
+      return res.status(400).json({
+        message:
+          "Chỉ đổi mật khẩu khi đang dùng mật khẩu mặc định và nhập đúng mật khẩu cũ",
+      });
     }
     // Kiểm tra độ mạnh password mới
     const strongRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
     if (!strongRegex.test(newPassword)) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt",
-        });
+      return res.status(400).json({
+        message:
+          "Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt",
+      });
     }
     // Đổi password, lưu vào DB
     const hashed = await bcrypt.hash(newPassword, 10);
@@ -110,12 +106,10 @@ const changePassword = async (req, res) => {
       accountId: account.accountId,
     };
     await sendOtpEmail(email, `Mã OTP xác thực đổi mật khẩu: ${otp}`);
-    return res
-      .status(200)
-      .json({
-        message:
-          "Đã đổi mật khẩu. Vui lòng xác thực OTP gửi về email để hoàn tất.",
-      });
+    return res.status(200).json({
+      message:
+        "Đã đổi mật khẩu. Vui lòng xác thực OTP gửi về email để hoàn tất.",
+    });
   } catch (err) {
     console.error("Lỗi đổi mật khẩu:", err);
     res.status(500).json({ message: "Lỗi đổi mật khẩu" });
@@ -492,7 +486,6 @@ const getAllAccounts = async (req, res) => {
         role: ["OS", "SF"], // lọc các role là OS hoặc SF
       },
     });
-
     res.json({ accounts });
   } catch (err) {
     console.error("Lỗi khi lấy danh sách accounts:", err);
