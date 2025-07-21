@@ -407,6 +407,9 @@ const deleteProfileOfStaffById = async (req, res) => {
   }
 };
 
+// Lấy full profiles từ accountID 
+
+
 module.exports = {
   getMyProfile,
   createProfile,
