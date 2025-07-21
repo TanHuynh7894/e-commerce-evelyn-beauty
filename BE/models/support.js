@@ -46,13 +46,14 @@ const Support = sequelize.define(
 
 Support.associate = (models) => {
   Support.belongsTo(models.Account, {
-    foreignKey: "accountIdCustomer",
-    as: "customer",
-  });
-  Support.belongsTo(models.Account, {
-    foreignKey: "accountIdStaff",
-    as: "staff",
-  });
+  foreignKey: "accountIdCustomer",
+  as: "account_id_customer",
+});
+
+Support.belongsTo(models.Account, {
+  foreignKey: "accountIdStaff",
+  as: "account_id_staff",
+});
 };
 
 module.exports = Support;

@@ -1,4 +1,4 @@
-const Support = require('../models/support');
+const { Support, Account } = require('../models');
 const { Op } = require('sequelize');
 
 // Tạo yêu cầu hỗ trợ (customer gửi)
@@ -21,29 +21,56 @@ const createSupport = async (req, res) => {
 const getAllSupports = async (req, res) => {
   try {
     let supports;
+
     if (req.user.role === 'SF') {
       // Staff xem ticket của mình hoặc chưa ai nhận
       supports = await Support.findAll({
         where: {
           [Op.or]: [
-            { accountIdStaff: req.user.accountId },
-            { accountIdStaff: null }
+            { accountIdStaff: req.user.accountId }
           ]
-        }
+        },
+        include: [
+          {
+            model: Account,
+            as: 'account_id_customer',
+            attributes: ['name', 'email']
+          },
+          {
+            model: Account,
+            as: 'account_id_staff',
+            attributes: ['name', 'email']
+          }
+        ]
       });
     } else {
       // Customer chỉ xem được ticket của mình
       supports = await Support.findAll({
         where: {
           accountIdCustomer: req.user.accountId
-        }
+        },
+        include: [
+          {
+            model: Account,
+            as: 'account_id_customer',
+            attributes: ['name', 'email']
+          },
+          {
+            model: Account,
+            as: 'account_id_staff',
+            attributes: ['name', 'email']
+          }
+        ]
       });
     }
+
     res.json(supports);
   } catch (err) {
+    console.error(err); // debug log
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // Lấy support theo id (chỉ staff hoặc customer liên quan mới xem được)
 const getSupportById = async (req, res) => {

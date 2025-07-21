@@ -41,14 +41,6 @@ Account.associate = (models) => {
     foreignKey: "accountId",
     as: "orderCancels",
   });
-  Account.hasMany(models.Support, {
-    foreignKey: "accountIdCustomer",
-    as: "supportRequests",
-  });
-  Account.hasMany(models.Support, {
-    foreignKey: "accountIdStaff",
-    as: "supportAssigned",
-  });
   Account.hasMany(models.Category, {
     foreignKey: "accountId",
     as: "categories",
