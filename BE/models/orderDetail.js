@@ -46,7 +46,7 @@ OrderDetail.associate = (models) => {
   // Thêm quan hệ với Classification
   OrderDetail.belongsTo(models.Classification, {
     foreignKey: "classificationId",
-    as: "classification",
+    as: "classification_id",
   });
 };
 

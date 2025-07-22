@@ -840,7 +840,7 @@ exports.getProductDetail = async (req, res) => {
     const classificationLinks = await ClassificationProduct.findAll({
       where: { productId },
       include: [
-        { model: Classification, as: "classification", attributes: ["name"] },
+        { model: Classification, as: "classification_id", attributes: ["name"] },
       ],
     });
     // Log classificationId của sản phẩm được chọn

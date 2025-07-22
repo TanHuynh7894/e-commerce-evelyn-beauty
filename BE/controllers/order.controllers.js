@@ -98,55 +98,117 @@ exports.createOrderInternal = async ({
 
 exports.getCustomerOrders = async (req, res) => {
   try {
-    // Bước 1: Lấy tất cả profile theo accountId
+    const accountId = req.user?.accountId;
+
+    // 1. Lấy tất cả profile thuộc account hiện tại
     const profiles = await Profile.findAll({
-      where: { accountId: req.user.accountId },
+      where: { accountId },
     });
 
-    // Bước 2: Lấy danh sách profileId
     const profileIds = profiles.map((p) => p.profileId);
-
     if (profileIds.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy hồ sơ nào" });
     }
 
-    // Bước 3: Lấy tất cả đơn hàng thuộc các profile đó + delivery + details + product
+    // 2. Lấy tất cả đơn hàng theo profileId
     const orders = await Order.findAll({
       where: { profileId: profileIds },
       include: [
         {
           model: OrderDetail,
           as: "details",
-          include: [{ model: Product, as: "product" }],
+          include: [
+            {
+              model: Product,
+              as: "product",
+            },
+            {
+              model: Classification,
+              as: "classification_id", //  Sửa lại đúng alias
+              attributes: ["name"],
+            },
+          ],
+        },
+        {
+          model: PromotionProgram,
+          as: "promotionProgram",
+          attributes: ["value"],
+        },
+        {
+          model: Account,
+          as: "account",
+          attributes: ["name"],
+        },
+        {
+          model: Payment,
+          as: "payment",
+          attributes: ["transaction_no"],
         },
         {
           model: Delivery,
           as: "delivery",
           attributes: ["transaction_no"],
         },
+        {
+          model: Profile,
+          as: "profile",
+          attributes: ["name", "phone", "address"],
+        },
       ],
     });
 
-    // Bước 4: Chuyển dữ liệu thành dạng dễ đọc
-    const result = orders.map((order) => ({
-      orderId: order.orderId,
-      date: order.date,
-      status: order.status,
-      transactionNo: order.delivery?.transaction_no || null,
-      items: order.details.map((d) => ({
-        productName: d.product.name,
-        price: d.product.price,
-        quantity: d.quantity,
-        total: d.product.price * d.quantity,
-      })),
-    }));
+    // 3. Tính tổng đơn hàng, chiết khấu, tổng thanh toán
+    const enrichedOrders = orders.map((order) => {
+      let totalBefore = 0;
 
-    res.json({ orders: result });
+      if (order.details && Array.isArray(order.details)) {
+        totalBefore = order.details.reduce((sum, detail) => {
+          const price = Number(detail.product?.price) || 0;
+          const quantity = Number(detail.quantity) || 0;
+          return sum + price * quantity;
+        }, 0);
+      }
+
+      const shipFee = Number(order.shipFee) || 0;
+      totalBefore += shipFee;
+
+      const programValue = Number(order.promotionProgram?.value) || 0;
+      const discount = totalBefore * programValue;
+      const totalFinal = totalBefore - discount;
+
+      return {
+        orderId: order.orderId,
+        profileId: order.profileId, // ✅ Thêm profileId
+        date: order.date,
+        status: order.status,
+        shipFee: order.shipFee,
+        transactionNo: order.delivery?.transaction_no || null,
+        discount: Number(discount.toFixed(2)),
+        total_before: totalBefore,
+        total_final: Number(totalFinal.toFixed(2)),
+        profile: order.profile,
+        account: order.account,
+        payment: order.payment,
+        promotionProgram: order.promotionProgram,
+        details: order.details.map((d) => ({
+          productId: d.productId,
+          productName: d.product?.name,
+          classification: d.classification?.name || null,
+          price: Number(d.product?.price) || 0,
+          quantity: d.quantity,
+          total: Number(d.product?.price || 0) * d.quantity,
+        })),
+      };
+    });
+
+    res.json({ orders: enrichedOrders });
   } catch (err) {
-    console.error("Lỗi lấy đơn hàng:", err);
+    console.error("Lỗi lấy đơn hàng người dùng:", err);
     res.status(500).json({ message: "Không thể lấy danh sách đơn hàng" });
   }
 };
+
+
 
 exports.getAllOrders = async (req, res) => {
   try {
