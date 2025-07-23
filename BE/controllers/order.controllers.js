@@ -224,7 +224,7 @@ exports.getAllOrders = async (req, res) => {
             },
             {
               model: Classification,
-              as: "classification",
+              as: "classification_id",
               attributes: ["name"], // lấy tên phân loại
             },
           ],
