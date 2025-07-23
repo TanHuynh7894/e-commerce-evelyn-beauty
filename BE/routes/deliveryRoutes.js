@@ -52,6 +52,9 @@ router.post("/calculate-fee-v2", verifyToken, async (req, res) => {
 // Lấy thông tin đơn hàng GHN
 router.post("/order-info", verifyToken, deliveryController.getOrderInfo);
 
+// Lấy chi tiết đơn hàng
+router.post("/order-detail", verifyToken, deliveryController.getOrderDetail);
+
 // API mới: Lấy danh sách quận/huyện theo province_id
 router.get(
   "/districts-by-province",
@@ -66,6 +69,13 @@ router.get(
 );
 
 // API trả về link tracking GHN
-router.post("/ghn-tracking-link", deliveryController.getGhnTrackingLink);
+router.post(
+  "/ghn-tracking-link",
+  verifyToken,
+  deliveryController.getGhnTrackingLink
+);
+
+// Route tracking đơn hàng GHN
+// router.post("/tracking", verifyToken, deliveryController.trackingDelivery);
 
 module.exports = router;
