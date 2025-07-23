@@ -722,17 +722,9 @@ exports.updateProduct = async (req, res) => {
       allowedFields.includes(key)
     );
 
-    if (updateKeys.length === 0 && (!req.files || req.files.length === 0)) {
-      return res
-        .status(400)
-        .json({ message: "Không có trường hợp lệ để cập nhật." });
-    }
+    const hasQuantity = updateKeys.includes("quantity");
 
-    const isOnlyQuantity =
-      updateKeys.length === 1 && updateKeys[0] === "quantity";
-
-    //Trường hợp chỉ update quantity
-    if (isOnlyQuantity) {
+    if (hasQuantity) {
       const { classificationId, quantity } = updates;
       if (!classificationId) {
         return res
@@ -749,14 +741,20 @@ exports.updateProduct = async (req, res) => {
           .json({ message: "classificationId không thuộc productId này." });
       }
       await classificationForProduct.update({ quantity });
-      return res.status(200).json({
-        message: "Cập nhật số lượng thành công.",
-        updated: {
-          productId,
-          classificationId,
-          quantity,
-        },
-      });
+      // Nếu chỉ update quantity, return luôn
+      if (updateKeys.length === 1) {
+        return res.status(200).json({
+          message: "Cập nhật số lượng thành công.",
+          updated: {
+            productId,
+            classificationId,
+            quantity,
+          },
+        });
+      }
+      // Nếu còn các trường khác, tiếp tục xử lý update các trường khác như cũ (bỏ quantity khỏi updateKeys)
+      updateKeys.splice(updateKeys.indexOf("quantity"), 1);
+      delete updates.quantity;
     }
 
     //Trường hợp update thông tin khác → đánh dấu "off" và tạo mới
