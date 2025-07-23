@@ -574,14 +574,14 @@ exports.importNewProduct = async (req, res) => {
         // Nếu gửi nhiều sản phẩm 1 lần, chia đều file cho từng sản phẩm (nâng cao),
         // còn nếu chỉ gửi 1 sản phẩm thì lấy hết file cho sản phẩm đó
         if (products.length === 1) {
-          imagesArr = req.files.map((f) => `/public/${f.filename}`);
+          imagesArr = req.files.map((f) => `/public/products/${f.filename}`);
         } else {
           // Nếu gửi nhiều sản phẩm, mỗi sản phẩm gửi kèm số file ảnh tương ứng
           // (ví dụ: req.files = [file1, file2, file3, ...], mỗi item.images.length)
           // Ở đây chỉ lấy file theo thứ tự cho từng sản phẩm nếu cần
           // Đơn giản: mỗi sản phẩm lấy 1 file theo index (nếu có)
           if (req.files[index]) {
-            imagesArr = [`/public/${req.files[index].filename}`];
+            imagesArr = [`/public/products/${req.files[index].filename}`];
           }
         }
       }
@@ -748,16 +748,7 @@ exports.updateProduct = async (req, res) => {
         }
       }
       // Lưu file mới vào public/products và cập nhật đường dẫn
-      const filePaths = req.files.map((f) => {
-        const oldPath = f.path;
-        const fileName = f.filename;
-        const newPath = path.join(__dirname, "../public/products", fileName);
-        // Di chuyển file vào public/products nếu chưa ở đó
-        if (!oldPath.includes("public/products")) {
-          fs.renameSync(oldPath, newPath);
-        }
-        return `/public/products/${fileName}`;
-      });
+      const filePaths = req.files.map((f) => `/public/products/${f.filename}`);
       [image_1, image_2, image_3, image_4, image_5] = filePaths;
     }
 
