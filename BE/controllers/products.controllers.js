@@ -777,6 +777,28 @@ exports.updateProduct = async (req, res) => {
       status: "ON",
     });
 
+    // Gán lại category cũ cho product mới
+    const oldCategories = await CategoryProduct.findAll({
+      where: { productId },
+    });
+    for (const cat of oldCategories) {
+      await CategoryProduct.create({
+        categoryId: cat.categoryId,
+        productId: newProductId,
+      });
+    }
+    // Gán lại classification cũ cho product mới
+    const oldClassifications = await ClassificationProduct.findAll({
+      where: { productId },
+    });
+    for (const cl of oldClassifications) {
+      await ClassificationProduct.create({
+        productId: newProductId,
+        classificationId: cl.classificationId,
+        quantity: cl.quantity,
+      });
+    }
+
     return res.status(200).json({
       message: "Đã tạo sản phẩm mới và update status sản phẩm cũ thành off.",
       newProduct: (() => {
