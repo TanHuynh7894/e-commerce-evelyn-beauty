@@ -25,6 +25,7 @@ const {
 const {
   getTransactionFromPayOSByOrderCode,
 } = require("../middlewares/payment.midedlewares");
+const { profile } = require("console");
 
 const payOS = new PayOS(
   process.env.PAYOS_CLIENT_ID,
@@ -295,11 +296,12 @@ exports.handlePayOSWebhook = async (req, res) => {
     const AccountNumber = data?.counterAccountNumber;
 
     // Xác định trạng thái từ webhook
+    const payosStatus = (data?.status || data?.state || "").toLowerCase();
     let status = "CANCELLED";
-    const payosStatus = data?.status || data?.state || "";
 
-    if (payosStatus === "PAID") status = "PAID";
-    else if (payosStatus === "FAILED") status = "FAILED";
+    if (payosStatus === "paid") status = "PAID";
+    else if (payosStatus === "failed") status = "FAILED";
+    else if (data?.code === "00") status = "PAID"; // fallback nếu không có status
 
     console.log("paymentId:", paymentId);
     console.log("Transaction ID:", transactionId);
@@ -349,25 +351,32 @@ exports.handlePayOSWebhook = async (req, res) => {
         }
       }
 
-      const cart = await Cart.findOne({
-        where: { accountId: order.accountId },
-      });
+      //  Tìm accountId từ profileId trước khi tìm Cart
+      const profile = await Profile.findByPk(order.profileId);
+      if (!profile || !profile.accountId) {
+        console.warn("Không tìm thấy profile hoặc thiếu accountId");
+        return res.status(404).json({ message: "Không tìm thấy thông tin người dùng" });
+      }
+
+      const accountId = profile.accountId;
+      const cart = await Cart.findOne({ where: { accountId } });
+
       if (cart) {
         for (const item of orderDetails) {
-          await CartItem.update(
-            { status: "OFF" },
-            {
-              where: {
-                cartId: cart.cartId,
-                productId: item.productId,
-                classificationId: item.classificationId,
-              },
-            }
-          );
+          await CartItem.destroy({
+            where: {
+              cartId: cart.cartId,
+              productId: item.productId,
+              classificationId: item.classificationId,
+            },
+          });
         }
-        console.log("Đã cập nhật trạng thái các mục trong giỏ hàng thành OFF");
+        console.log(" Đã xóa các mục trong giỏ hàng (CartItem) sau khi thanh toán.");
+      } else {
+        console.warn(" Không tìm thấy giỏ hàng với accountId:", accountId);
       }
     }
+
     return res.status(200).json({
       message: "Webhook đã xử lý thành công",
       orderCode: rawOrderCode,
@@ -381,6 +390,7 @@ exports.handlePayOSWebhook = async (req, res) => {
     });
   }
 };
+
 
 exports.getTransactionInfo = async (req, res) => {
   const { orderCode } = req.params;
@@ -401,10 +411,12 @@ exports.getTransactionInfo = async (req, res) => {
 
 exports.cancelOrderByClient = async (req, res) => {
   try {
-    const { orderCode } = req.body;
+    console.log("Query params:", req.query)
+    const { orderCode } = req.query;
     const paymentId = `PM${orderCode}`;
+    console.log('Thông tin từ PayOS:', req.query); // kiểm tra giá trị thật
 
-    const order = await Order.findOne({ where: { paymentId } });
+    const order = await Order.findOne({ where: { paymentId: paymentId.trim() } });
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
