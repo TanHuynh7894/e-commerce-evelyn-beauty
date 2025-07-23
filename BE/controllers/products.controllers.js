@@ -71,7 +71,7 @@ exports.getAllProducts = async (req, res) => {
 exports.getProductsByCategory = async (req, res) => {
   const categoryId = req.query.category;
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = parseInt(req.query.limit) || 30;
   const offset = (page - 1) * limit;
 
   try {
@@ -166,7 +166,7 @@ exports.getProductsByCategory = async (req, res) => {
 exports.getProductsByBrand = async (req, res) => {
   const { brand } = req.query;
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = parseInt(req.query.limit) || 30;
   const offset = (page - 1) * limit;
 
   try {
@@ -243,7 +243,7 @@ exports.getProductsByBrand = async (req, res) => {
 exports.getProductsByCategoryAndBrand = async (req, res) => {
   const { category, brand } = req.query;
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
+  const limit = parseInt(req.query.limit) || 30;
   const offset = (page - 1) * limit;
 
   try {
@@ -733,10 +733,29 @@ exports.updateProduct = async (req, res) => {
 
     //Trường hợp chỉ update quantity
     if (isOnlyQuantity) {
-      await product.update({ quantity: updates.quantity });
+      const { classificationId, quantity } = updates;
+      if (!classificationId) {
+        return res
+          .status(400)
+          .json({ message: "Thiếu classificationId khi update quantity." });
+      }
+      // Kiểm tra classificationId có thuộc productId không
+      const classificationForProduct = await ClassificationProduct.findOne({
+        where: { productId, classificationId },
+      });
+      if (!classificationForProduct) {
+        return res
+          .status(400)
+          .json({ message: "classificationId không thuộc productId này." });
+      }
+      await classificationForProduct.update({ quantity });
       return res.status(200).json({
         message: "Cập nhật số lượng thành công.",
-        updatedProduct: product,
+        updated: {
+          productId,
+          classificationId,
+          quantity,
+        },
       });
     }
 
