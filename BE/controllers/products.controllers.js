@@ -845,7 +845,7 @@ exports.getProductDetail = async (req, res) => {
       include: [
         {
           model: Classification,
-          as: "classification_id",
+          as: "classification",
           attributes: ["name"],
         },
       ],
