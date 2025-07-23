@@ -40,13 +40,18 @@ exports.getAllProducts = async (req, res) => {
     });
     const data = products.map((p) => {
       const prod = p.get({ plain: true });
+      const baseUrl = req.protocol + "://" + req.get("host");
       prod.images = [
         prod.image_1,
         prod.image_2,
         prod.image_3,
         prod.image_4,
         prod.image_5,
-      ].filter(Boolean);
+      ]
+        .filter(Boolean)
+        .map((img) =>
+          img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+        );
       delete prod.image_1;
       delete prod.image_2;
       delete prod.image_3;
@@ -116,13 +121,18 @@ exports.getProductsByCategory = async (req, res) => {
     // Biến images thành mảng như getAllProducts
     const data = products.map((p) => {
       const prod = p.get({ plain: true });
+      const baseUrl = req.protocol + "://" + req.get("host");
       prod.images = [
         prod.image_1,
         prod.image_2,
         prod.image_3,
         prod.image_4,
         prod.image_5,
-      ].filter(Boolean);
+      ]
+        .filter(Boolean)
+        .map((img) =>
+          img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+        );
       delete prod.image_1;
       delete prod.image_2;
       delete prod.image_3;
@@ -189,13 +199,18 @@ exports.getProductsByBrand = async (req, res) => {
     });
     const data = products.map((p) => {
       const prod = p.get({ plain: true });
+      const baseUrl = req.protocol + "://" + req.get("host");
       prod.images = [
         prod.image_1,
         prod.image_2,
         prod.image_3,
         prod.image_4,
         prod.image_5,
-      ].filter(Boolean);
+      ]
+        .filter(Boolean)
+        .map((img) =>
+          img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+        );
       delete prod.image_1;
       delete prod.image_2;
       delete prod.image_3;
@@ -274,13 +289,18 @@ exports.getProductsByCategoryAndBrand = async (req, res) => {
     // Biến images thành mảng như getAllProducts
     const data = products.map((p) => {
       const prod = p.get({ plain: true });
+      const baseUrl = req.protocol + "://" + req.get("host");
       prod.images = [
         prod.image_1,
         prod.image_2,
         prod.image_3,
         prod.image_4,
         prod.image_5,
-      ].filter(Boolean);
+      ]
+        .filter(Boolean)
+        .map((img) =>
+          img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+        );
       delete prod.image_1;
       delete prod.image_2;
       delete prod.image_3;
@@ -345,13 +365,18 @@ exports.searchProducts = async (req, res) => {
     });
     const data = products.map((p) => {
       const prod = p.get({ plain: true });
+      const baseUrl = req.protocol + "://" + req.get("host");
       prod.images = [
         prod.image_1,
         prod.image_2,
         prod.image_3,
         prod.image_4,
         prod.image_5,
-      ].filter(Boolean);
+      ]
+        .filter(Boolean)
+        .map((img) =>
+          img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+        );
       delete prod.image_1;
       delete prod.image_2;
       delete prod.image_3;
@@ -900,13 +925,18 @@ exports.getProductDetail = async (req, res) => {
 
     // Chuyển images sang array
     const productData = product.get({ plain: true });
+    const baseUrl = req.protocol + "://" + req.get("host");
     productData.images = [
       productData.image_1,
       productData.image_2,
       productData.image_3,
       productData.image_4,
       productData.image_5,
-    ].filter(Boolean);
+    ]
+      .filter(Boolean)
+      .map((img) =>
+        img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+      );
     delete productData.image_1;
     delete productData.image_2;
     delete productData.image_3;
