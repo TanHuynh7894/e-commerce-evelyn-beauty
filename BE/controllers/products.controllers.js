@@ -646,13 +646,12 @@ exports.importNewProduct = async (req, res) => {
       data: {
         created: created.map((prod) => {
           const p = prod.get ? prod.get({ plain: true }) : prod;
-          p.images = [
-            p.image_1,
-            p.image_2,
-            p.image_3,
-            p.image_4,
-            p.image_5,
-          ].filter(Boolean);
+          const baseUrl = req.protocol + "://" + req.get("host");
+          p.images = [p.image_1, p.image_2, p.image_3, p.image_4, p.image_5]
+            .filter(Boolean)
+            .map((img) =>
+              img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+            );
           delete p.image_1;
           delete p.image_2;
           delete p.image_3;
@@ -794,13 +793,12 @@ exports.updateProduct = async (req, res) => {
       message: "Đã tạo sản phẩm mới và update status sản phẩm cũ thành off.",
       newProduct: (() => {
         const p = newProduct.get ? newProduct.get({ plain: true }) : newProduct;
-        p.images = [
-          p.image_1,
-          p.image_2,
-          p.image_3,
-          p.image_4,
-          p.image_5,
-        ].filter(Boolean);
+        const baseUrl = req.protocol + "://" + req.get("host");
+        p.images = [p.image_1, p.image_2, p.image_3, p.image_4, p.image_5]
+          .filter(Boolean)
+          .map((img) =>
+            img.startsWith("/public/products/") ? `${baseUrl}${img}` : img
+          );
         delete p.image_1;
         delete p.image_2;
         delete p.image_3;
