@@ -355,7 +355,9 @@ exports.handlePayOSWebhook = async (req, res) => {
       const profile = await Profile.findByPk(order.profileId);
       if (!profile || !profile.accountId) {
         console.warn("Không tìm thấy profile hoặc thiếu accountId");
-        return res.status(404).json({ message: "Không tìm thấy thông tin người dùng" });
+        return res
+          .status(404)
+          .json({ message: "Không tìm thấy thông tin người dùng" });
       }
 
       const accountId = profile.accountId;
@@ -371,7 +373,9 @@ exports.handlePayOSWebhook = async (req, res) => {
             },
           });
         }
-        console.log(" Đã xóa các mục trong giỏ hàng (CartItem) sau khi thanh toán.");
+        console.log(
+          " Đã xóa các mục trong giỏ hàng (CartItem) sau khi thanh toán."
+        );
       } else {
         console.warn(" Không tìm thấy giỏ hàng với accountId:", accountId);
       }
@@ -390,7 +394,6 @@ exports.handlePayOSWebhook = async (req, res) => {
     });
   }
 };
-
 
 exports.getTransactionInfo = async (req, res) => {
   const { orderCode } = req.params;
@@ -411,12 +414,14 @@ exports.getTransactionInfo = async (req, res) => {
 
 exports.cancelOrderByClient = async (req, res) => {
   try {
-    console.log("Query params:", req.query)
+    console.log("Query params:", req.query);
     const { orderCode } = req.query;
     const paymentId = `PM${orderCode}`;
-    console.log('Thông tin từ PayOS:', req.query); // kiểm tra giá trị thật
+    console.log("Thông tin từ PayOS:", req.query); // kiểm tra giá trị thật
 
-    const order = await Order.findOne({ where: { paymentId: paymentId.trim() } });
+    const order = await Order.findOne({
+      where: { paymentId: paymentId.trim() },
+    });
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
@@ -431,5 +436,45 @@ exports.cancelOrderByClient = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Lỗi hệ thống", error: err.message });
+  }
+};
+// Lấy thông tin chi tiết từ paymentId
+exports.getPaymentInfo = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    if (!paymentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu paymentId",
+      });
+    }
+
+    const payment = await Payment.findByPk(paymentId);
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy payment với ID đã cung cấp",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        paymentId: payment.paymentId,
+        transactionNo: payment.transactionNo,
+        AccountBankId: payment.AccountBankId,
+        AccountName: payment.AccountName,
+        AccountNumber: payment.AccountNumber,
+      },
+    });
+  } catch (error) {
+    console.error("getPaymentInfo error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi khi lấy thông tin payment",
+      error: error.message,
+    });
   }
 };

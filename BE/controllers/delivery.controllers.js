@@ -843,55 +843,6 @@ async function getGhnTrackingLink(req, res) {
   return res.json({ success: true, link });
 }
 
-// async function trackingDelivery(req, res) {
-//   try {
-//     const { deliveryId } = req.body;
-//     if (!deliveryId) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Thiếu deliveryId" });
-//     }
-//     const { Delivery } = require("../models"); // Đảm bảo require đúng
-//     const delivery = await Delivery.findOne({ where: { deliveryId } });
-//     if (!delivery) {
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "Không tìm thấy delivery" });
-//     }
-//     const transaction_no = delivery.transaction_no;
-//     console.log("deliveryId:", deliveryId, "transaction_no:", transaction_no); // Thêm log
-//     if (!transaction_no) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Delivery chưa có transaction_no" });
-//     }
-//     // Gọi API tracking GHN
-//     const axios = require("axios");
-//     const response = await axios.post(
-//       "https://online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/track",
-//       { order_code: transaction_no },
-//       {
-//         headers: {
-//           "Content-Type": "application/json",
-//           Token: process.env.GHN_TOKEN,
-//           ShopId: process.env.GHN_SHOP_ID,
-//         },
-//       }
-//     );
-//     return res.json({ success: true, data: response.data });
-//   } catch (error) {
-//     console.error(
-//       "trackingDelivery error:",
-//       error?.response?.data || error.message
-//     );
-//     return res.status(500).json({
-//       success: false,
-//       message: "Lỗi tracking đơn hàng",
-//       error: error?.response?.data || error.message,
-//     });
-//   }
-// }
-
 // Định nghĩa hàm getOrderDetail đúng chuẩn function
 async function getOrderDetail(req, res) {
   const { transaction_no } = req.body;
@@ -928,6 +879,44 @@ async function getOrderDetail(req, res) {
     });
   }
 }
+// API: Nhận vào deliveryId và trả về link tracking GHN
+async function getTrackingLinkFromDeliveryId(req, res) {
+  const { deliveryId } = req.body;
+  if (!deliveryId) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Thiếu deliveryId" });
+  }
+
+  try {
+    const { Delivery } = require("../models");
+
+    const delivery = await Delivery.findOne({ where: { deliveryId } });
+
+    if (!delivery || !delivery.transaction_no) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy đơn giao hàng hoặc thiếu transaction_no",
+      });
+    }
+
+    const link = `https://donhang.ghn.vn/?order_code=${encodeURIComponent(
+      delivery.transaction_no
+    )}`;
+
+    return res.json({ success: true, link });
+  } catch (error) {
+    console.error(
+      "getTrackingLinkFromDeliveryId error:",
+      error?.message || error
+    );
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi lấy link tracking từ deliveryId",
+      error: error?.message || error,
+    });
+  }
+}
 
 module.exports = {
   getProvinces,
@@ -943,4 +932,5 @@ module.exports = {
   calculateFeeFromProfileV2,
   getGhnTrackingLink,
   getOrderDetail,
+  getTrackingLinkFromDeliveryId,
 };

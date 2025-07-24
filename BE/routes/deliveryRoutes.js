@@ -75,7 +75,11 @@ router.post(
   deliveryController.getGhnTrackingLink
 );
 
-// Route tracking đơn hàng GHN
-// router.post("/tracking", verifyToken, deliveryController.trackingDelivery);
+// API: Lấy link tracking GHN từ deliveryId
+router.post(
+  "/tracking-link-from-delivery-id",
+  verifyToken,
+  deliveryController.getTrackingLinkFromDeliveryId
+);
 
 module.exports = router;
