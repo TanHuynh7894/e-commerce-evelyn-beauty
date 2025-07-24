@@ -109,11 +109,9 @@ const updateOrderDetail = async (req, res) => {
 
     // Kiểm tra accountId của profile có trùng với accountId đăng nhập không
     if (profile.accountId !== accountId) {
-      return res
-        .status(403)
-        .json({
-          message: "Bạn không có quyền cập nhật chi tiết đơn hàng này!",
-        });
+      return res.status(403).json({
+        message: "Bạn không có quyền cập nhật chi tiết đơn hàng này!",
+      });
     }
 
     // Chỉ cập nhật các trường có giá trị
@@ -150,6 +148,58 @@ const deleteOrderDetail = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+const rateProduct = async (req, res) => {
+  const { productId, classificationId, rate, comment } = req.body;
+  const accountId = req.user.accountId; // Lấy từ token
+
+  try {
+    // 1. Tìm tất cả orderDetail phù hợp (đơn đã thanh toán)
+    const { Order } = require("../models");
+    const orderDetails = await OrderDetail.findAll({
+      where: { productId, classificationId },
+      include: [
+        {
+          model: Order,
+          as: "order",
+          where: { accountId, status: "done" },
+        },
+      ],
+      order: [["orderDetailId", "DESC"]], // Sắp xếp mới nhất trước
+    });
+
+    if (!orderDetails || orderDetails.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy sản phẩm đã mua để đánh giá",
+      });
+    }
+
+    // 2. Đánh giá bản ghi mới nhất
+    const newestOrderDetail = orderDetails[0];
+    newestOrderDetail.rate = rate;
+    newestOrderDetail.comment = comment;
+    await newestOrderDetail.save();
+
+    // 3. Ghi đè comment và rate lên các bản ghi còn lại (nếu có)
+    if (orderDetails.length > 1) {
+      const updatePromises = orderDetails.slice(1).map((od) => {
+        od.rate = rate;
+        od.comment = comment;
+        return od.save();
+      });
+      await Promise.all(updatePromises);
+    }
+
+    res.json({
+      success: true,
+      message: "Đánh giá thành công cho tất cả đơn hàng đã mua sản phẩm này",
+    });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ success: false, message: "Lỗi server", error: err.message });
+  }
+};
 
 module.exports = {
   // createOrderDetail,
@@ -158,4 +208,5 @@ module.exports = {
   updateOrderDetail,
   deleteOrderDetail,
   createOrderDetailInternal,
+  rateProduct,
 };

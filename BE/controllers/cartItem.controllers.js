@@ -205,3 +205,59 @@ exports.deleteCartItem = async (req, res) => {
     res.status(500).json({ message: "Lỗi server khi xóa cart item", error });
   }
 };
+// Lấy tất cả cart items đã thanh toán (status = 'OFF') của khách hàng hiện tại
+exports.getAllPaidCartItems = async (req, res) => {
+  try {
+    // Kiểm tra xác thực
+    if (!req.user || !req.user.accountId) {
+      return res
+        .status(401)
+        .json({ message: "Chưa đăng nhập hoặc thiếu thông tin tài khoản" });
+    }
+    // Lấy cartId của khách hàng hiện tại
+    const cart = await Cart.findOne({
+      where: { accountId: req.user.accountId },
+    });
+    if (!cart) {
+      return res.status(404).json({ message: "Khách hàng chưa có giỏ hàng" });
+    }
+    const cartItems = await CartItem.findAll({
+      where: { cartId: cart.cartId, status: "OFF" },
+      include: [
+        {
+          model: Product,
+          as: "product",
+          attributes: ["productId", "name", "price", "image_1"],
+        },
+        {
+          model: Classification,
+          as: "classification",
+          attributes: ["classificationId", "name"],
+        },
+      ],
+    });
+    // Định dạng lại kết quả trả về
+    const result = cartItems.map((item) => ({
+      product: item.product
+        ? {
+            productId: item.product?.productId,
+            name: item.product?.name,
+            price: item.product?.price,
+            image: item.product?.image_1,
+          }
+        : null,
+      classification: item.classification
+        ? {
+            classificationId: item.classification.classificationId,
+            name: item.classification.name,
+          }
+        : null,
+      quantity: item.quantity,
+    }));
+    res.json({ paidProducts: result });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Lỗi server khi lấy cart items đã thanh toán", error });
+  }
+};
