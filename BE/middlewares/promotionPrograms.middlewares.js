@@ -57,16 +57,13 @@ const validateCreatePromotionProgram = (req, res, next) => {
     });
   }
 
-  if (value === undefined || value === null) {
-    return res.status(400).json({
-      message: "Value không được để trống",
-    });
-  }
-
-  if (typeof value !== "number" || value <= 0) {
-    return res.status(400).json({
-      message: "Value phải là số dương",
-    });
+  // ✅ Chỉ kiểm tra value nếu được gửi lên
+  if (value !== undefined && value !== null) {
+    if (typeof value !== "number" || value < 0) {
+      return res.status(400).json({
+        message: "Value phải là số không âm",
+      });
+    }
   }
 
   if (!startDate) {
@@ -81,7 +78,7 @@ const validateCreatePromotionProgram = (req, res, next) => {
     });
   }
 
-  // Validate dates
+  // Validate date formats
   const startDateObj = new Date(startDate);
   const endDateObj = new Date(endDate);
 
@@ -103,14 +100,13 @@ const validateCreatePromotionProgram = (req, res, next) => {
     });
   }
 
-  // Validate name length
+  // Validate max length
   if (name.length > 5000) {
     return res.status(400).json({
       message: "Tên promotion program không được vượt quá 5000 ký tự",
     });
   }
 
-  // Validate condition length
   if (condition1.length > 20) {
     return res.status(400).json({
       message: "Condition1 không được vượt quá 20 ký tự",

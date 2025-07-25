@@ -30,26 +30,31 @@ exports.getActivePromotionPrograms = async (req, res) => {
     }
 
     // Lấy promotion programs còn hiệu lực và đang bật
-    const { count, rows: promotionPrograms } = await PromotionProgram.findAndCountAll({
-      where: {
-        startDate: { [Op.lte]: currentDate },
-        endDate: { [Op.gte]: currentDate },
-        status: "ON",
-      },
-      limit,
-      offset,
-      order: [["startDate", "DESC"]],
-    });
+    const { count, rows: promotionPrograms } =
+      await PromotionProgram.findAndCountAll({
+        where: {
+          startDate: { [Op.lte]: currentDate },
+          endDate: { [Op.gte]: currentDate },
+          status: "ON",
+        },
+        limit,
+        offset,
+        order: [["startDate", "DESC"]],
+      });
 
     // Loại bỏ program có ID 'PG000'
-    const filteredPromos = promotionPrograms.filter(promo => promo.programId !== "PG000");
+    const filteredPromos = promotionPrograms.filter(
+      (promo) => promo.programId !== "PG000"
+    );
 
     // Lọc theo điều kiện
     const currentDay = currentDate.getDay(); // 0 = Sunday
 
     const validPromos = filteredPromos.filter((promo) => {
-      const hasCondition1 = promo.condition1 !== null && promo.condition1 !== undefined;
-      const hasCondition2 = promo.condition2 !== null && promo.condition2 !== undefined;
+      const hasCondition1 =
+        promo.condition1 !== null && promo.condition1 !== undefined;
+      const hasCondition2 =
+        promo.condition2 !== null && promo.condition2 !== undefined;
 
       const validCondition1 = hasCondition1 ? amount >= promo.condition1 : true;
       const validCondition2 = hasCondition2
@@ -83,7 +88,6 @@ exports.getActivePromotionPrograms = async (req, res) => {
     });
   }
 };
-
 
 // Lấy tất cả promotion programs có status ON (cho role OS)
 exports.getOnPromotionProgramsForOS = async (req, res) => {
@@ -189,36 +193,39 @@ exports.softDeletePromotionProgram = async (req, res) => {
 // Tạo mới promotion program (cho role OS - Owner/Staff)
 exports.createPromotionProgram = async (req, res) => {
   try {
-    const { name, condition1, condition2, value, startDate, endDate } =
-      req.body;
-    const accountId = req.user.accountId; // Lấy accountId của người tạo từ JWT token
+    let { name, condition1, condition2, value, startDate, endDate } = req.body;
+    const accountId = req.user.accountId;
 
-    // Validate required fields
-    if (
-      !name ||
-      !condition1 ||
-      value === undefined ||
-      value === null ||
-      !startDate ||
-      !endDate
-    ) {
+    // Validate bắt buộc
+    if (!name || !condition1 || !startDate || !endDate) {
       return res.status(400).json({
         message:
-          "Các trường name, condition1, value, startDate, endDate không được để trống",
+          "Các trường name, condition1, startDate, endDate không được để trống",
       });
     }
 
-    // Validate value
-    if (typeof value !== "number" || value <= 0) {
+    // Trim name để tránh lỗi regex do khoảng trắng
+    name = name.trim();
+
+    // === Tự động lấy % giảm từ name nếu không có value ===
+    let discountValue = value;
+    if (discountValue === undefined || discountValue === null) {
+      const percentageMatch = name.match(/(\d{1,2})\s*%/); // ví dụ "27%" hoặc "27 %"
+      if (percentageMatch) {
+        discountValue = parseFloat(percentageMatch[1]) / 100;
+      } else {
+        discountValue = 0;
+      }
+    }
+
+    if (typeof discountValue !== "number" || discountValue < 0) {
       return res.status(400).json({
-        message: "Value phải là số dương",
+        message: "Value phải là số không âm",
       });
     }
 
-    // Validate dates
     const startDateObj = new Date(startDate);
     const endDateObj = new Date(endDate);
-    const currentDate = new Date();
 
     if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
       return res.status(400).json({
@@ -232,29 +239,26 @@ exports.createPromotionProgram = async (req, res) => {
       });
     }
 
-    // Generate programId (format: PROMO + timestamp)
     const timestamp = Date.now();
     const programId = `PROMO${timestamp}`;
 
-    // Tạo promotion program mới
     const newPromotionProgram = await PromotionProgram.create({
       programId,
       name,
       condition1,
-      condition2: condition2 || null, // condition2 có thể null
-      value,
+      condition2: condition2 || null,
+      value: discountValue,
       startDate: startDateObj,
       endDate: endDateObj,
       accountId,
-      status: "ON", // Mặc định status là ON
+      status: "ON",
     });
 
-    // Xác định loại giảm giá
-    const discountType = value < 1 ? "Phần trăm" : "Số tiền cố định";
-    const discountValue =
-      value < 1
-        ? `${(value * 100).toFixed(0)}%`
-        : `${value.toLocaleString()} VNĐ`;
+    const discountType = discountValue < 1 ? "Phần trăm" : "Số tiền cố định";
+    const discountInfoValue =
+      discountValue < 1
+        ? `${(discountValue * 100).toFixed(0)}%`
+        : `${discountValue.toLocaleString()} VNĐ`;
 
     res.status(201).json({
       message: "Tạo promotion program thành công",
@@ -262,7 +266,7 @@ exports.createPromotionProgram = async (req, res) => {
         promotionProgram: newPromotionProgram,
         discountInfo: {
           type: discountType,
-          value: discountValue,
+          value: discountInfoValue,
         },
       },
     });

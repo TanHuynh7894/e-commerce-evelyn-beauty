@@ -24,14 +24,13 @@ router.post(
 
 // Tạo mới promotion program (cho role OS - Owner/Staff)
 router.post(
-  "/",
+  "/create", // 👈 rõ nghĩa, không trùng với route CU
   verifyToken,
-  requireRole("OS"),
+  requireRole("OS", "SF"),
   logPromotionProgramRequest,
   validateCreatePromotionProgram,
   promotionProgramsController.createPromotionProgram
 );
-
 // Lấy tất cả promotion programs có status ON (cho role OS)
 router.get(
   "/os/on",
