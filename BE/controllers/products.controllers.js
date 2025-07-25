@@ -520,7 +520,6 @@ exports.importNewProduct = async (req, res) => {
   try {
     let { products } = req.body;
 
-    // Parse nếu products là string
     if (typeof products === "string") {
       try {
         products = JSON.parse(products);
@@ -540,6 +539,11 @@ exports.importNewProduct = async (req, res) => {
     const created = [];
     const skipped = [];
 
+    // ✅ Hàm tạo classificationId dạng CL + timestamp + random
+    const generateClassificationId = () => {
+      return `CL${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    };
+
     for (const [index, item] of products.entries()) {
       const {
         name,
@@ -554,24 +558,22 @@ exports.importNewProduct = async (req, res) => {
 
       const accountId = req.user.accountId;
 
-      // ✅ Kiểm tra thông tin bắt buộc
+      // Kiểm tra thông tin bắt buộc
       if (!name || !price || !brand) {
         skipped.push({ name, reason: "Thiếu thông tin bắt buộc" });
         continue;
       }
 
-      // ✅ Kiểm tra categoryId
+      // Kiểm tra category
       if (Array.isArray(categories) && categories.length > 0) {
-        const invalidCategory = categories.find(
-          (catId) => !catId && catId !== 0
-        );
+        const invalidCategory = categories.find((catId) => !catId && catId !== 0);
         if (invalidCategory !== undefined) {
           skipped.push({ name, reason: "Thiếu categoryId trong categories" });
           continue;
         }
       }
 
-      // ✅ Kiểm tra classification name
+      // Xử lý classification: tìm hoặc tạo mới
       const classificationEntries = [];
 
       if (Array.isArray(classifications) && classifications.length > 0) {
@@ -581,25 +583,20 @@ exports.importNewProduct = async (req, res) => {
           const { name: classificationName, quantity = 0 } = cl;
 
           if (!classificationName) {
-            skipped.push({
-              name,
-              reason: "Thiếu name trong classification",
-            });
+            skipped.push({ name, reason: "Thiếu name trong classification" });
             classificationError = true;
             break;
           }
 
-          const foundClassification = await Classification.findOne({
+          let foundClassification = await Classification.findOne({
             where: { name: classificationName },
           });
 
           if (!foundClassification) {
-            skipped.push({
-              name,
-              reason: `Classification '${classificationName}' không tồn tại`,
+            foundClassification = await Classification.create({
+              classificationId: generateClassificationId(),
+              name: classificationName,
             });
-            classificationError = true;
-            break;
           }
 
           classificationEntries.push({
@@ -611,7 +608,7 @@ exports.importNewProduct = async (req, res) => {
         if (classificationError) continue;
       }
 
-      // ✅ Kiểm tra sản phẩm đã tồn tại
+      // Kiểm tra sản phẩm trùng
       const existing = await Product.findOne({
         where: { name, origin, brand, price, description },
       });
@@ -621,7 +618,7 @@ exports.importNewProduct = async (req, res) => {
         continue;
       }
 
-      // ✅ Xử lý ảnh
+      // Xử lý ảnh
       let imagesArr = images;
       if (req.files && req.files.length > 0) {
         if (products.length === 1) {
@@ -635,7 +632,7 @@ exports.importNewProduct = async (req, res) => {
 
       const [image_1, image_2, image_3, image_4, image_5] = imagesArr;
 
-      // ✅ Tạo sản phẩm
+      // Tạo product
       const newProductId = "PD" + Date.now() + Math.floor(Math.random() * 1000);
 
       const newProduct = await Product.create({
@@ -653,7 +650,7 @@ exports.importNewProduct = async (req, res) => {
         accountId,
       });
 
-      // ✅ Gán categories
+      // Gán categories
       for (const categoryId of categories) {
         await CategoryProduct.create({
           categoryId,
@@ -661,7 +658,7 @@ exports.importNewProduct = async (req, res) => {
         });
       }
 
-      // ✅ Gán classifications
+      // Gán classifications
       for (const cl of classificationEntries) {
         await ClassificationProduct.create({
           productId: newProductId,
@@ -673,7 +670,6 @@ exports.importNewProduct = async (req, res) => {
       created.push(newProduct);
     }
 
-    // ✅ Trả kết quả
     if (created.length === 0) {
       return res.status(400).json({
         message: "Import không thành công",
