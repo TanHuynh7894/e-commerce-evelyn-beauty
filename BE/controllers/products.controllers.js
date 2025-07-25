@@ -519,7 +519,8 @@ exports.getRecommendProducts = async (req, res) => {
 exports.importNewProduct = async (req, res) => {
   try {
     let { products } = req.body;
-    // Nếu products là string (gửi qua form-data), parse lại JSON
+
+    // Parse nếu products là string
     if (typeof products === "string") {
       try {
         products = JSON.parse(products);
@@ -529,6 +530,7 @@ exports.importNewProduct = async (req, res) => {
           .json({ message: "products không phải là JSON hợp lệ." });
       }
     }
+
     if (!Array.isArray(products) || products.length === 0) {
       return res
         .status(400)
@@ -545,18 +547,20 @@ exports.importNewProduct = async (req, res) => {
         brand,
         price,
         description,
-        images = [], // mảng link ảnh
-        categories = [], // mảng categoryId
-        classifications = [], // mảng { classificationId, quantity }
+        images = [],
+        categories = [],
+        classifications = [],
       } = item;
-      const accountId = req.user.accountId; // lấy từ user đăng nhập
 
+      const accountId = req.user.accountId;
+
+      // ✅ Kiểm tra thông tin bắt buộc
       if (!name || !price || !brand) {
         skipped.push({ name, reason: "Thiếu thông tin bắt buộc" });
         continue;
       }
 
-      // Kiểm tra thiếu categoryId
+      // ✅ Kiểm tra categoryId
       if (Array.isArray(categories) && categories.length > 0) {
         const invalidCategory = categories.find(
           (catId) => !catId && catId !== 0
@@ -567,23 +571,47 @@ exports.importNewProduct = async (req, res) => {
         }
       }
 
-      // Kiểm tra thiếu classificationId
+      // ✅ Kiểm tra classification name
+      const classificationEntries = [];
+
       if (Array.isArray(classifications) && classifications.length > 0) {
-        const invalidClassification = classifications.find(
-          (cl) => !cl.classificationId && cl.classificationId !== 0
-        );
-        if (invalidClassification !== undefined) {
-          skipped.push({
-            name,
-            reason: "Thiếu classificationId trong classifications",
+        let classificationError = false;
+
+        for (const cl of classifications) {
+          const { name: classificationName, quantity = 0 } = cl;
+
+          if (!classificationName) {
+            skipped.push({
+              name,
+              reason: "Thiếu name trong classification",
+            });
+            classificationError = true;
+            break;
+          }
+
+          const foundClassification = await Classification.findOne({
+            where: { name: classificationName },
           });
-          continue;
+
+          if (!foundClassification) {
+            skipped.push({
+              name,
+              reason: `Classification '${classificationName}' không tồn tại`,
+            });
+            classificationError = true;
+            break;
+          }
+
+          classificationEntries.push({
+            classificationId: foundClassification.classificationId,
+            quantity,
+          });
         }
+
+        if (classificationError) continue;
       }
 
-      const newProductId = "PD" + Date.now() + Math.floor(Math.random() * 1000);
-
-      // Kiểm tra sản phẩm đã tồn tại (KHÔNG kiểm tra image)
+      // ✅ Kiểm tra sản phẩm đã tồn tại
       const existing = await Product.findOne({
         where: { name, origin, brand, price, description },
       });
@@ -593,26 +621,23 @@ exports.importNewProduct = async (req, res) => {
         continue;
       }
 
-      // Ưu tiên lấy ảnh từ file upload nếu có (form-data)
+      // ✅ Xử lý ảnh
       let imagesArr = images;
       if (req.files && req.files.length > 0) {
-        // Nếu gửi nhiều sản phẩm 1 lần, chia đều file cho từng sản phẩm (nâng cao),
-        // còn nếu chỉ gửi 1 sản phẩm thì lấy hết file cho sản phẩm đó
         if (products.length === 1) {
           imagesArr = req.files.map((f) => `/public/products/${f.filename}`);
         } else {
-          // Nếu gửi nhiều sản phẩm, mỗi sản phẩm gửi kèm số file ảnh tương ứng
-          // (ví dụ: req.files = [file1, file2, file3, ...], mỗi item.images.length)
-          // Ở đây chỉ lấy file theo thứ tự cho từng sản phẩm nếu cần
-          // Đơn giản: mỗi sản phẩm lấy 1 file theo index (nếu có)
           if (req.files[index]) {
             imagesArr = [`/public/products/${req.files[index].filename}`];
           }
         }
       }
+
       const [image_1, image_2, image_3, image_4, image_5] = imagesArr;
 
-      // Tạo sản phẩm mới (KHÔNG có quantity)
+      // ✅ Tạo sản phẩm
+      const newProductId = "PD" + Date.now() + Math.floor(Math.random() * 1000);
+
       const newProduct = await Product.create({
         productId: newProductId,
         name,
@@ -625,33 +650,30 @@ exports.importNewProduct = async (req, res) => {
         image_3,
         image_4,
         image_5,
-        accountId, // truyền accountId lấy từ user đăng nhập
+        accountId,
       });
 
-      // Gán category cho sản phẩm (nếu có)
-      if (Array.isArray(categories) && categories.length > 0) {
-        for (const categoryId of categories) {
-          await CategoryProduct.create({
-            categoryId,
-            productId: newProductId,
-          });
-        }
+      // ✅ Gán categories
+      for (const categoryId of categories) {
+        await CategoryProduct.create({
+          categoryId,
+          productId: newProductId,
+        });
       }
 
-      // Gán classification và quantity cho từng classification (nếu có)
-      if (Array.isArray(classifications) && classifications.length > 0) {
-        for (const cl of classifications) {
-          await ClassificationProduct.create({
-            productId: newProductId,
-            classificationId: cl.classificationId,
-            quantity: cl.quantity || 0,
-          });
-        }
+      // ✅ Gán classifications
+      for (const cl of classificationEntries) {
+        await ClassificationProduct.create({
+          productId: newProductId,
+          classificationId: cl.classificationId,
+          quantity: cl.quantity,
+        });
       }
 
       created.push(newProduct);
     }
 
+    // ✅ Trả kết quả
     if (created.length === 0) {
       return res.status(400).json({
         message: "Import không thành công",
