@@ -27,5 +27,5 @@ router.get(
   paymentController.getTransactionInfo
 );
 router.get("/cancel-order", paymentController.cancelOrderByClient);
-router.get("/info/:paymentId", verifyToken, paymentController.getPaymentInfo);
+// router.get("/info/:paymentId", verifyToken, paymentController.getPaymentInfo);
 module.exports = router;
