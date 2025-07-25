@@ -1,5 +1,5 @@
-const { Support, Account } = require('../models');
-const { Op } = require('sequelize');
+const { Support, Account } = require("../models");
+const { Op } = require("sequelize");
 
 // Tạo yêu cầu hỗ trợ (customer gửi)
 const createSupport = async (req, res) => {
@@ -9,7 +9,7 @@ const createSupport = async (req, res) => {
       supportId: `SP${Date.now()}`,
       accountIdCustomer: req.user.accountId,
       dateCreate: new Date(),
-      comment
+      comment,
     });
     res.status(201).json(support);
   } catch (err) {
@@ -17,50 +17,45 @@ const createSupport = async (req, res) => {
   }
 };
 
-// Lấy tất cả support (staff xem ticket của mình và chưa có người nhận, customer xem ticket của mình)
+// Lấy tất cả support
 const getAllSupports = async (req, res) => {
   try {
     let supports;
 
-    if (req.user.role === 'SF') {
-      // Staff xem ticket của mình hoặc chưa ai nhận
+    if (req.user.role === "SF" || req.user.role === "OS") {
+      // Staff hoặc Owner xem tất cả support
       supports = await Support.findAll({
-        where: {
-          [Op.or]: [
-            { accountIdStaff: req.user.accountId }
-          ]
-        },
         include: [
           {
             model: Account,
-            as: 'account_id_customer',
-            attributes: ['name', 'email']
+            as: "account_id_customer",
+            attributes: ["name", "email"],
           },
           {
             model: Account,
-            as: 'account_id_staff',
-            attributes: ['name', 'email']
-          }
-        ]
+            as: "account_id_staff",
+            attributes: ["name", "email"],
+          },
+        ],
       });
     } else {
       // Customer chỉ xem được ticket của mình
       supports = await Support.findAll({
         where: {
-          accountIdCustomer: req.user.accountId
+          accountIdCustomer: req.user.accountId,
         },
         include: [
           {
             model: Account,
-            as: 'account_id_customer',
-            attributes: ['name', 'email']
+            as: "account_id_customer",
+            attributes: ["name", "email"],
           },
           {
             model: Account,
-            as: 'account_id_staff',
-            attributes: ['name', 'email']
-          }
-        ]
+            as: "account_id_staff",
+            attributes: ["name", "email"],
+          },
+        ],
       });
     }
 
@@ -70,7 +65,6 @@ const getAllSupports = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 // Lấy support theo id (chỉ staff hoặc customer liên quan mới xem được)
 const getSupportById = async (req, res) => {
@@ -82,20 +76,26 @@ const resolveSupport = async (req, res) => {
   try {
     const { supportId, resolve } = req.body;
     if (!supportId) {
-      return res.status(400).json({ message: 'Vui lòng cung cấp supportId' });
+      return res.status(400).json({ message: "Vui lòng cung cấp supportId" });
     }
 
     const support = await Support.findByPk(supportId);
-    if (!support) return res.status(404).json({ message: 'Không tìm thấy support' });
+    if (!support)
+      return res.status(404).json({ message: "Không tìm thấy support" });
 
     // Chỉ staff mới có quyền xử lý
-    if (req.user.role !== 'SF') {
-      return res.status(403).json({ message: 'Không có quyền xử lý' });
+    if (req.user.role !== "SF") {
+      return res.status(403).json({ message: "Không có quyền xử lý" });
     }
 
     // Nếu ticket đã có người xử lý nhưng không phải mình, báo lỗi
-    if (support.accountIdStaff && support.accountIdStaff !== req.user.accountId) {
-      return res.status(403).json({ message: 'Bạn không có quyền xử lý support này' });
+    if (
+      support.accountIdStaff &&
+      support.accountIdStaff !== req.user.accountId
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Bạn không có quyền xử lý support này" });
     }
 
     // Gán ticket cho staff nếu chưa có ai nhận
@@ -117,18 +117,18 @@ const deleteSupport = async (req, res) => {
   try {
     const { supportId } = req.body;
     if (!supportId) {
-      return res.status(400).json({ message: 'Vui lòng cung cấp supportId' });
+      return res.status(400).json({ message: "Vui lòng cung cấp supportId" });
     }
     const support = await Support.findByPk(supportId);
-    if (!support) return res.status(404).json({ message: 'Không tìm thấy support' });
-    if (
-      support.accountIdCustomer !== req.user.accountId ||
-      support.resolve
-    ) {
-      return res.status(403).json({ message: 'Không có quyền xóa hoặc support đã được xử lý' });
+    if (!support)
+      return res.status(404).json({ message: "Không tìm thấy support" });
+    if (support.accountIdCustomer !== req.user.accountId || support.resolve) {
+      return res
+        .status(403)
+        .json({ message: "Không có quyền xóa hoặc support đã được xử lý" });
     }
     await support.destroy();
-    res.json({ message: 'Đã xóa support' });
+    res.json({ message: "Đã xóa support" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -139,5 +139,5 @@ module.exports = {
   getAllSupports,
   getSupportById,
   resolveSupport,
-  deleteSupport
+  deleteSupport,
 };
