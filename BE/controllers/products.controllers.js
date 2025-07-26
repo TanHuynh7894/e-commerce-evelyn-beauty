@@ -566,7 +566,9 @@ exports.importNewProduct = async (req, res) => {
 
       // Kiểm tra category
       if (Array.isArray(categories) && categories.length > 0) {
-        const invalidCategory = categories.find((catId) => !catId && catId !== 0);
+        const invalidCategory = categories.find(
+          (catId) => !catId && catId !== 0
+        );
         if (invalidCategory !== undefined) {
           skipped.push({ name, reason: "Thiếu categoryId trong categories" });
           continue;
@@ -584,6 +586,15 @@ exports.importNewProduct = async (req, res) => {
 
           if (!classificationName) {
             skipped.push({ name, reason: "Thiếu name trong classification" });
+            classificationError = true;
+            break;
+          }
+
+          if (quantity < 0) {
+            skipped.push({
+              name,
+              reason: "Số lượng không thể là số âm trong classification",
+            });
             classificationError = true;
             break;
           }
@@ -749,6 +760,14 @@ exports.updateProduct = async (req, res) => {
           .status(400)
           .json({ message: "Thiếu classificationId khi update quantity." });
       }
+
+      // Kiểm tra số lượng âm
+      if (quantity < 0) {
+        return res
+          .status(400)
+          .json({ message: "Số lượng không thể là số âm." });
+      }
+
       // Kiểm tra classificationId có thuộc productId không
       const classificationForProduct = await ClassificationProduct.findOne({
         where: { productId, classificationId },
@@ -993,5 +1012,32 @@ exports.getProductDetail = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: "Lỗi server", error: error.message });
+  }
+};
+
+exports.deleteProduct = async (req, res) => {
+  try {
+    const { productId } = req.query;
+
+    // Tìm sản phẩm trong cơ sở dữ liệu
+    const product = await Product.findByPk(productId);
+
+    if (!product) {
+      return res.status(404).json({ message: "Không tìm thấy sản phẩm." });
+    }
+
+    // Cập nhật trạng thái sản phẩm thành "OFF"
+    await product.update({ status: "OFF" });
+
+    res.status(200).json({
+      message: "Sản phẩm đã được xóa (trạng thái OFF).",
+      productId,
+    });
+  } catch (error) {
+    console.error("Lỗi khi xóa sản phẩm:", error);
+    return res.status(500).json({
+      message: "Lỗi server khi xóa sản phẩm.",
+      error: error.message,
+    });
   }
 };
