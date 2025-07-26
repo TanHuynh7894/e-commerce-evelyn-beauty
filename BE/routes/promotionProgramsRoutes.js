@@ -57,7 +57,7 @@ router.patch(
 router.delete(
   "/programId",
   verifyToken,
-  requireRole("OS"),
+  requireRole("OS", "SF"),
   logPromotionProgramRequest,
   checkPromotionProgramExists,
   promotionProgramsController.softDeletePromotionProgram
