@@ -1014,3 +1014,30 @@ exports.getProductDetail = async (req, res) => {
       .json({ success: false, message: "Lỗi server", error: error.message });
   }
 };
+
+exports.deleteProduct = async (req, res) => {
+  try {
+    const { productId } = req.query;
+
+    // Tìm sản phẩm trong cơ sở dữ liệu
+    const product = await Product.findByPk(productId);
+
+    if (!product) {
+      return res.status(404).json({ message: "Không tìm thấy sản phẩm." });
+    }
+
+    // Cập nhật trạng thái sản phẩm thành "OFF"
+    await product.update({ status: "OFF" });
+
+    res.status(200).json({
+      message: "Sản phẩm đã được xóa (trạng thái OFF).",
+      productId,
+    });
+  } catch (error) {
+    console.error("Lỗi khi xóa sản phẩm:", error);
+    return res.status(500).json({
+      message: "Lỗi server khi xóa sản phẩm.",
+      error: error.message,
+    });
+  }
+};

@@ -64,4 +64,13 @@ router.put(
 // Lấy chi tiết sản phẩm, category, classification, rating stats
 router.get("/:productId/detail", productsController.getProductDetail);
 
+// Xóa sản phẩm (chuyển trạng thái thành OFF)
+router.delete(
+  "/deleteProduct",
+  verifyToken,
+  requireRole( "OS"),
+  productsController.deleteProduct
+);
+
+
 module.exports = router;

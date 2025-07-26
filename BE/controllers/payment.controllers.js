@@ -300,6 +300,7 @@ exports.handlePayOSWebhook = async (req, res) => {
 
     if (payosStatus === "PAID") status = "PAID";
     else if (payosStatus === "FAILED") status = "FAILED";
+    else if (data?.code === "00") status = "PAID";
 
     console.log("paymentId:", paymentId);
     console.log("Transaction ID:", transactionId);
@@ -349,8 +350,15 @@ exports.handlePayOSWebhook = async (req, res) => {
         }
       }
 
+//  Tìm accountId từ profileId trước khi tìm Cart
+      const profile = await Profile.findByPk(order.profileId);
+      if (!profile || !profile.accountId) {
+        console.warn("Không tìm thấy profile hoặc thiếu accountId");
+        return res.status(404).json({ message: "Không tìm thấy thông tin người dùng" });
+      }
+
       const cart = await Cart.findOne({
-        where: { accountId: order.accountId },
+        where: { accountId: profile.accountId},
       });
       if (cart) {
         for (const item of orderDetails) {
@@ -401,7 +409,7 @@ exports.getTransactionInfo = async (req, res) => {
 
 exports.cancelOrderByClient = async (req, res) => {
   try {
-    const { orderCode } = req.params;
+    const { orderCode } = req.query;
     const paymentId = `PM${orderCode}`;
 
     const order = await Order.findOne({ where: { paymentId } });
