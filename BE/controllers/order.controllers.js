@@ -458,8 +458,8 @@ exports.getRefund = async (req, res) => {
           as: "payment",
           attributes: [
             "paymentId",
-            "transactionNo",
             "accountBankId",
+            "accountBankName",
             "accountName",
             "accountNumber",
           ],
