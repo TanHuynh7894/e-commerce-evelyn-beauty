@@ -26,6 +26,10 @@ router.get(
   requireRole("OS", "SF"),
   paymentController.getTransactionInfo
 );
-router.get("/cancel-order", paymentController.cancelOrderByClient);
 // router.get("/info/:paymentId", verifyToken, paymentController.getPaymentInfo);
+// Đổi route backend để tránh trùng với FE:
+router.get("/success-redirect", paymentController.redirectPaymentSuccess);
+router.get("/cancel-redirect", paymentController.redirectPaymentCancel);
+
+
 module.exports = router;

@@ -236,8 +236,8 @@ exports.createPayOSLink = async (req, res) => {
       orderCode,
       amount: finalAmount,
       description: `ORDER=${orderId}`,
-      cancelUrl: process.env.PAYOS_CANCEL_URL,
-      returnUrl: process.env.PAYOS_RETURN_URL,
+      cancelUrl: `${process.env.PAYOS_CANCEL_URL}?orderCode=${orderCode}`,
+      returnUrl: `${process.env.PAYOS_RETURN_URL}?orderCode=${orderCode}`,
       items: fullItems.map((i) => ({
         name: `SP-${i.productId}`,
         quantity: i.quantity,
@@ -445,26 +445,58 @@ exports.getTransactionInfo = async (req, res) => {
   }
 };
 
-exports.cancelOrderByClient = async (req, res) => {
+
+// routes/payment.routes.js hoặc tương đương
+
+exports.redirectPaymentSuccess = async (req, res) => {
   try {
-    const { orderCode } = req.query;
-    const paymentId = `PM${orderCode}`;
+    const { orderCode, status, id, code, cancel } = req.query;
 
-    const order = await Order.findOne({ where: { paymentId } });
-    if (!order) {
-      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
-    }
+    // Optional: Kiểm tra logic hoặc lưu log tại đây nếu cần
+    const redirectURL = new URL("http://localhost:5173/payment/success");
+    if (orderCode) redirectURL.searchParams.set("orderCode", orderCode);
+    if (status) redirectURL.searchParams.set("status", status);
+    if (id) redirectURL.searchParams.set("id", id);
+    if (code) redirectURL.searchParams.set("code", code);
+    if (cancel) redirectURL.searchParams.set("cancel", cancel);
 
-    // Cập nhật trạng thái đơn hàng
-    await order.update({ status: "cancel" });
-    return res
-      .status(200)
-      .json({ message: "Đã cập nhật đơn hàng thành cancel" });
+    return res.redirect(302, redirectURL.toString());
   } catch (err) {
-    console.error("Lỗi hủy đơn hàng:", err);
-    return res
-      .status(500)
-      .json({ message: "Lỗi hệ thống", error: err.message });
+    console.error("Lỗi khi redirect thành công:", err);
+    return res.status(500).send("Lỗi hệ thống khi redirect thành công.");
   }
 };
+
+exports.redirectPaymentCancel = async (req, res) => {
+  try {
+    const { orderCode, status, id, code, cancel } = req.query;
+
+    if (orderCode) {
+      const paymentId = `PM${orderCode}`;
+      const order = await Order.findOne({ where: { paymentId } });
+
+      if (order) {
+        await order.update({ status: "cancel" });
+        console.log(` Đã cập nhật đơn hàng ${order.orderId} thành cancel`);
+      } else {
+        console.warn("Không tìm thấy đơn hàng trong cancel-redirect");
+      }
+    }
+
+    //  Redirect về giao diện FE
+    const redirectURL = new URL("http://localhost:5173/payment/cancel");
+    if (orderCode) redirectURL.searchParams.set("orderCode", orderCode);
+    if (status) redirectURL.searchParams.set("status", status);
+    if (id) redirectURL.searchParams.set("id", id);
+    if (code) redirectURL.searchParams.set("code", code);
+    if (cancel) redirectURL.searchParams.set("cancel", cancel);
+
+    return res.redirect(302, redirectURL.toString());
+  } catch (err) {
+    console.error("Lỗi khi redirect huỷ:", err);
+    return res.status(500).send("Lỗi redirect huỷ thanh toán.");
+  }
+};
+
+
 
