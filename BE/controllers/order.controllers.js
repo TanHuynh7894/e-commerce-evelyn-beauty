@@ -242,7 +242,9 @@ exports.getAllOrders = async (req, res) => {
         {
           model: Payment,
           as: "payment",
-          attributes: ["transaction_no"],
+          attributes: {
+            exclude: ["paymentId"],
+          },
         },
         {
           model: Delivery,
@@ -424,5 +426,38 @@ exports.getRefundOrders = async (req, res) => {
   } catch (error) {
     console.error("Lỗi lấy đơn hàng refund:", error);
     res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
+  }
+};
+
+
+exports.getRefund = async (req, res) => {
+  try {
+    const refundOrders = await Order.findAll({
+      where: { status: "refund" },
+      include: [
+        {
+          model: Payment,
+          as: "payment",
+          attributes: {
+            exclude: ["paymentId"], // bỏ nếu bạn không cần ID
+          },
+        },
+      ],
+    });
+
+    if (!refundOrders || refundOrders.length === 0) {
+      return res.status(404).json({ message: "Không có đơn hàng hoàn tiền nào" });
+    }
+
+    return res.status(200).json({
+      message: "Danh sách đơn hàng cần hoàn tiền",
+      data: refundOrders,
+    });
+  } catch (err) {
+    console.error("Lỗi lấy danh sách hoàn tiền:", err);
+    return res.status(500).json({
+      message: "Lỗi hệ thống khi truy vấn hoàn tiền",
+      error: err.message,
+    });
   }
 };

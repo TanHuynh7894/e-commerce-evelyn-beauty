@@ -13,6 +13,10 @@ const Payment = sequelize.define(
       type: DataTypes.STRING(50),
       field: "AccountBankId",
     },
+    AccountBankName: {
+      type: DataTypes.STRING(50),
+      field: "AccountBankName",
+    },
     AccountName: {
       type: DataTypes.STRING(50),
       field: "AccountName",

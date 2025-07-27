@@ -294,6 +294,40 @@ exports.handlePayOSWebhook = async (req, res) => {
     const AccountName = data?.counterAccountName;
     const AccountNumber = data?.counterAccountNumber;
 
+    // Xác định tên ngân hàng từ AccountBankId
+    let BankName = "Privacy-protected bank.";
+
+
+    switch (AccountBankId) {
+      case "970423":
+        BankName = "TP-Bank";
+        break;
+      case "970422":
+        BankName = "MB-Bank";
+        break;
+      case "970407":
+        BankName = "Techcombank";
+        break;
+      case "970403":
+        BankName = "Vietinbank";
+        break;
+      case "01204001":
+        BankName = "Agribank";
+        break;
+      case "01203001":
+        BankName = "Vietcombank";
+        break;
+      case "01202001":
+        BankName = "BIDV";
+        break;
+      case "01201001":
+        BankName = "Viettinbank";
+        break;
+      case "970416":
+        BankName = "ACB";
+        break;
+    }
+
     // Xác định trạng thái từ webhook
     let status = "CANCELLED";
     const payosStatus = data?.status || data?.state || "";
@@ -314,6 +348,7 @@ exports.handlePayOSWebhook = async (req, res) => {
 
     payment.transactionNo = transactionId || "0";
     payment.AccountBankId = AccountBankId || null;
+    payment.AccountBankName = BankName;
     payment.AccountName = AccountName || null;
     payment.AccountNumber = AccountNumber || null;
     await payment.save();
@@ -429,3 +464,4 @@ exports.cancelOrderByClient = async (req, res) => {
       .json({ message: "Lỗi hệ thống", error: err.message });
   }
 };
+

@@ -51,11 +51,18 @@ router.post(
 // router.get('/', verifyToken, orderController.getDeliveryAddress);
 
 // Lấy danh sách đơn hàng hoàn trả
+// router.get(
+//   "/refunds",
+//   verifyToken,
+//   requireRole("OS"),
+//   orderController.getRefundOrders
+// );
+
+// Lấy danh sách đơn hàng cần refund
 router.get(
   "/refunds",
   verifyToken,
   requireRole("OS"),
-  orderController.getRefundOrders
+  orderController.getRefund
 );
-
 module.exports = router;
