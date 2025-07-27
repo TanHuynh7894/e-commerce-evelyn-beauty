@@ -434,30 +434,90 @@ exports.getRefund = async (req, res) => {
   try {
     const refundOrders = await Order.findAll({
       where: { status: "refund" },
+      attributes: ["orderId", "programId", "shipFee", "date", "status"],
       include: [
+        {
+          model: OrderDetail, // hoặc OrderItem tùy tên model
+          as: "details",
+          attributes: ["productId", "quantity"],
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["productId", "price"]
+            }
+          ]
+        },
+        {
+          model: PromotionProgram,
+          as: "promotionProgram",
+          attributes: ["programId", "value"],
+        },
         {
           model: Payment,
           as: "payment",
-          attributes: {
-            exclude: ["paymentId"], // bỏ nếu bạn không cần ID
-          },
+          attributes: [
+            "paymentId",
+            "transactionNo",
+            "accountBankId",
+            "accountName",
+            "accountNumber",
+          ],
+        },
+        {
+          model: Delivery,
+          as: "delivery",
+          attributes: ["deliveryId", "transaction_no"],
+        },
+        {
+          model: Account,
+          as: "account",
+          attributes: ["accountId", "name"],
+        },
+        {
+          model: Profile,
+          as: "profile",
+          attributes: ["profileId", "name"],
         },
       ],
+      order: [["date", "DESC"]],
     });
 
-    if (!refundOrders || refundOrders.length === 0) {
-      return res.status(404).json({ message: "Không có đơn hàng hoàn tiền nào" });
-    }
+    const formattedOrders = refundOrders.map((order) => {
+      const data = order.toJSON();
 
-    return res.status(200).json({
-      message: "Danh sách đơn hàng cần hoàn tiền",
-      data: refundOrders,
+      let total = 0;
+
+      if (data.details && Array.isArray(data.details)) {
+        data.details.forEach((item) => {
+          const quantity = Number(item.quantity) || 0;
+          const price = Number(item.product?.price) || 0;
+          total += price * quantity;
+        });
+      }
+
+      let discount = 0;
+      if (data.promotionProgram?.value) {
+        const promoValue = parseFloat(data.promotionProgram.value);
+        if (!isNaN(promoValue)) {
+          discount = total * promoValue;
+          data.promotionProgram.value = `${(promoValue * 100).toFixed(0)}%`;
+        }
+      }
+
+      const shipFee = Number(data.shipFee) || 0;
+      data.total = total - discount + shipFee;
+
+      return data;
     });
-  } catch (err) {
-    console.error("Lỗi lấy danh sách hoàn tiền:", err);
-    return res.status(500).json({
-      message: "Lỗi hệ thống khi truy vấn hoàn tiền",
-      error: err.message,
+
+
+    res.status(200).json({
+      message: "Danh sách đơn hàng hoàn trả",
+      data: formattedOrders,
     });
+  } catch (error) {
+    console.error("Lỗi lấy đơn hàng refund:", error);
+    res.status(500).json({ message: "Lỗi hệ thống", error: error.message });
   }
 };

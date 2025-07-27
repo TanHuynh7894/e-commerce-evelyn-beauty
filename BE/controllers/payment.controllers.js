@@ -360,6 +360,9 @@ exports.handlePayOSWebhook = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
 
+    order.accountId = 'AC000';
+    await order.save();
+
     if (status === "PAID") {
       const orderDetails = await OrderDetail.findAll({
         where: { orderId: order.orderId },
